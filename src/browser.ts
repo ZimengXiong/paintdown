@@ -25,7 +25,8 @@ export function renderPreview(container: HTMLElement, layout: LayoutResult, font
   const families = new Map(fontFamilies.map(family => [family.id, family])), scale = Math.min(maximumScale, (container.clientWidth - 48) / layout.pageWidth);
   container.replaceChildren();
   for (const pageItems of layout.pages) {
-    const wrapper = document.createElement("div"); wrapper.className = "mkd-page-wrap"; wrapper.style.height = `${layout.pageHeight * scale}px`;
+    const wrapper = document.createElement("div"); wrapper.className = "mkd-page-wrap";
+    Object.assign(wrapper.style, { width: `${layout.pageWidth * scale}px`, height: `${layout.pageHeight * scale}px` });
     const page = document.createElement("div"); page.className = "mkd-page";
     Object.assign(page.style, { position: "relative", width: `${layout.pageWidth}px`, height: `${layout.pageHeight}px`, transform: `scale(${scale})`, transformOrigin: "top left", background: "white", boxShadow: "0 2px 14px #0003" });
     for (const item of pageItems) {

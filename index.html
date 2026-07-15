@@ -91,6 +91,29 @@
     @media(max-width:1100px){body.settings-open{grid-template-columns:340px minmax(0,1fr)}#settings{width:340px}.setting{grid-template-columns:minmax(0,1fr) 150px}.setting select{width:150px}}
     @media(max-width:680px){body{grid-template-columns:0 minmax(0,1fr)}body.settings-open{grid-template-columns:calc(100vw - 14px) 0;column-gap:0}#settings{position:relative!important;top:auto!important;right:auto!important;bottom:auto!important;width:calc(100vw - 14px);height:100%}}
   </style>
+  <style>
+    :root{--canvas:#c4c6c7;background:#c4c6c7}
+    body{background:radial-gradient(circle at 20% 0,#d2d4d5 0,#c5c7c8 42%,#bcbec0 100%)}
+    .topbar{border:0!important;background:rgba(237,238,236,.62);box-shadow:inset 0 1px 1px #ffffffb8,inset 0 -1px 2px #3c414615,0 10px 30px #363a3e1a}
+    #workspace{border:0!important;background:rgba(240,241,239,.14);box-shadow:inset 0 2px 7px #3b40451a,inset 0 -1px 1px #ffffff70}
+    .pane,#editorPane{border:0!important;background:rgba(244,245,242,.52);box-shadow:inset 0 1px 3px #3b404519,inset 0 -1px 1px #ffffff9c,0 10px 28px #34383c14}
+    .pane-head{border:0!important;background:rgba(239,240,237,.58);box-shadow:inset 0 -1px 3px #3b404511}
+    #editorPane textarea{background:rgba(252,252,249,.68)}
+    #previewPane{display:block;background:rgba(188,190,191,.38);scrollbar-width:none;-ms-overflow-style:none}.mkd-page-wrap{margin-left:auto;margin-right:auto}.mkd-page{border:0!important;border-radius:3px;box-shadow:0 8px 30px #34383c24!important}
+    #settings{border:0!important;background:rgba(224,225,223,.78);box-shadow:inset 0 2px 7px #3b404518,inset 0 -1px 1px #ffffff85;scrollbar-width:none;-ms-overflow-style:none}.settings-head{border:0!important;background:rgba(232,233,231,.78);box-shadow:inset 0 -1px 3px #3b404512}
+    #settings fieldset,#settings fieldset:first-of-type{border:0!important;background:rgba(249,249,246,.22);box-shadow:inset 0 2px 6px #3b404516,inset 0 -1px 1px #ffffff8c}.setting select{border:0!important;background:rgba(255,255,252,.44);box-shadow:inset 0 2px 5px #3b404518,inset 0 -1px 1px #ffffffa8}
+    .button{border:0!important;box-shadow:inset 0 1px 1px #ffffffa8,inset 0 -1px 3px #34393e17}.button.primary{box-shadow:inset 0 1px 1px #ffffff28,inset 0 -2px 4px #0004}
+    #previewPane::-webkit-scrollbar,#settings::-webkit-scrollbar,#editorPane textarea::-webkit-scrollbar{display:none;width:0;height:0}
+  </style>
+  <style>
+    :root{--matte-outer:rgba(235,236,234,.55);--matte-inner:rgba(249,249,246,.32);--matte-head:rgba(245,245,242,.42);--soft-inset:inset 0 1px 1px #ffffffa6,inset 0 -2px 6px #353a3f14;--soft-float:0 12px 32px #34383c16}
+    .topbar,#workspace,#settings{border:0!important;background:var(--matte-outer);box-shadow:var(--soft-inset),var(--soft-float);backdrop-filter:blur(20px)}
+    .topbar{border-radius:16px}#workspace,#settings{border-radius:18px}
+    .pane,#editorPane,#settings fieldset,#settings fieldset:first-of-type{border:0!important;border-radius:13px;background:var(--matte-inner);box-shadow:var(--soft-inset),0 8px 22px #34383c10}
+    .pane-head,.settings-head{border:0!important;background:var(--matte-head);box-shadow:inset 0 -2px 5px #353a3f0f}
+    .button,.setting select{border:0!important;background:rgba(255,255,252,.38);box-shadow:inset 0 1px 1px #ffffffbd,inset 0 -2px 5px #353a3f16}
+    .button{border-radius:9px}.setting select{border-radius:8px}.button.primary{background:#292c30;box-shadow:inset 0 1px 1px #ffffff2b,inset 0 -2px 5px #0004}
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -156,6 +179,6 @@
     </fieldset>
     <button class="button" id="resetBtn" type="button">Reset</button>
   </aside>
-  <script type="module" src="./demo/dist/demo.js?v=paintdown-matte-1"></script>
+  <script type="module" src="./demo/dist/demo.js?v=paintdown-premium-1"></script>
 </body>
 </html>
