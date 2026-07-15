@@ -6,52 +6,47 @@ import type { FontSlot, RenderOptions } from "../src/types.js";
 
 const proceduralArt = new URLSearchParams(location.search).get("art") === "procedural";
 const art = (name: "portrait" | "wide" | "tall") => `./demo/images/${proceduralArt ? "procedural-" : ""}${name}.png`;
-const sample = `# Paintdown example
-
-This document exercises typography, pagination, images, math, code, links, and tables using one renderer.
+const sample = `# Paintdown sample
 
 ## Responsive image sizing
 
-Images use their intrinsic dimensions at **96 CSS pixels per inch**, preserve their aspect ratio, and never upscale by default. Portrait figures use a smart editorial float when ordinary prose follows them:
+Images retain their proportions and do not upscale by default. Portrait images can float beside following prose.
 
-![A matte green, teal, and clay portrait composition](${art("portrait")} "Portrait image kept intact when possible")
+![A matte green, teal, and clay portrait composition](${art("portrait")})
 
-This paragraph wraps through the column beside the portrait rather than waiting below it. The compositor reserves a measured gutter, keeps every line out of the image box, and clears the float before the next structural block. That is the familiar editorial pattern used for portraits, diagrams, and supporting figures inside longer articles.
+This paragraph wraps beside the portrait. A measured gutter separates the text and image. The float ends before the next structural block.
 
 ### Landscape figures
 
-Wide artwork stays in the ordinary block flow and uses the full content column. Wrapping beside a shallow landscape image would leave a narrow, uncomfortable strip of text, so the smart mode deliberately avoids it.
+Landscape images remain in block flow when floating would leave a narrow text column.
 
-![A matte indigo, violet, and coral panoramic composition](${art("wide")} "Wide image capped at the content width")
+![A matte indigo, violet, and coral panoramic composition](${art("wide")})
 
 ---
 
 ## Oversized figures
 
-An image taller than a completely fresh page is scaled down until it fits both the content width and the usable page height. It is top-aligned—vertical centering is for slides, not reading flow.
+Images taller than the usable page area are scaled to fit and aligned to the top.
 
-![A tall matte ember, rose, and aubergine composition](${art("tall")} "Oversized image fitted to the usable page box")
+![A tall matte ember, rose, and aubergine composition](${art("tall")})
 
-Tall supporting artwork uses the same float treatment when ordinary prose follows it. Landscape artwork remains a full-width block because wrapping beside a shallow, wide image would create an unusably narrow strip of text.
+Following prose wraps beside this portrait image.
 
 ## Markdown details
 
-- List spacing follows the same rhythm above and between items
-- Wrapped items retain a hanging indent
-- Headings use Inter Display Semibold by default
-- [Links render as continuous, accessible runs](https://github.com/ZimengXiong/paintdown)
+- Lists use consistent spacing and hanging indents
+- Headings use the selected display face
+- [Links remain continuous](https://github.com/ZimengXiong/paintdown)
 
-> Quotes sit close to the left bar and remain vertically balanced inside it.
+> Quotes sit beside a left rule.
 
 ### LaTeX mathematics
 
-Inline mathematics follows the prose baseline, so $E = mc^2$ and $a_n = a_1 r^{n-1}$ wrap as part of an ordinary sentence. Display mathematics is centered and composed natively:
+Inline mathematics follows the prose baseline: $E = mc^2$ and $a_n = a_1 r^{n-1}$. Display mathematics is centered.
 
 $$
 \\int_0^\\infty e^{-x^2} \\, dx = \\frac{\\sqrt{\\pi}}{2}
 $$
-
-Greek symbols, relations, roots, fractions, operators, grouped superscripts, and subscripts use the same layout in the live preview and PDF output.
 
 \`\`\`ts
 const renderer = createRenderer({
