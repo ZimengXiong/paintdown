@@ -8,6 +8,10 @@ const proceduralArt = new URLSearchParams(location.search).get("art") === "proce
 const art = (name: "portrait" | "wide" | "tall") => `./demo/images/${proceduralArt ? "procedural-" : ""}${name}.png`;
 const sample = `# Paintdown sample
 
+This document is a layout specimen built from ordinary Markdown. It combines prose, figures, lists, mathematics, code, and tabular data.
+
+Use it to inspect type size, reading measure, spacing, and pagination across different block types.
+
 ## Responsive image sizing
 
 Images retain their proportions and do not upscale by default. Portrait images can float beside following prose.
@@ -52,7 +56,22 @@ The height limit follows the usable page area, so page size and margins affect t
 - Inline \`code\` uses the selected code face
 - [Links remain continuous](https://github.com/ZimengXiong/paintdown)
 
-> Quotes sit beside a left rule.
+## Prose and hierarchy
+
+Markdown records structure rather than page geometry. Headings divide topics, paragraphs carry continuous prose, and lists group related items.
+
+Short paragraphs create a brisk rhythm. Longer paragraphs slow the pace and give an idea room to develop. A document can use both without changing its type settings.
+
+Emphasis works best when it is selective. **Bold text** marks a strong point, *italics* add a quieter distinction, and \`inline code\` identifies literal names or values.
+
+### Revision sequence
+
+1. Establish the heading structure
+2. Read the prose without formatting distractions
+3. Check figures, captions, lists, and tables
+4. Review page endings for isolated lines or headings
+
+> A page should reveal its structure before every word has been read.
 
 ### LaTeX mathematics
 
@@ -62,6 +81,10 @@ $$
 \\int_0^\\infty e^{-x^2} \\, dx = \\frac{\\sqrt{\\pi}}{2}
 $$
 
+### Code
+
+Fenced blocks preserve indentation and wrap within the content column.
+
 \`\`\`ts
 const renderer = createRenderer({
   config: { fontSize: 11, boldHeadings: true },
@@ -70,11 +93,19 @@ const renderer = createRenderer({
 const pdf = await renderer.pdf(markdown);
 \`\`\`
 
+## Figure reference
+
 | Feature | Default | Behavior |
 | --- | --- | --- |
 | Wide image | max width | No distortion or upscaling |
 | Portrait image | smart float | Following prose wraps beside it |
 | Very tall image | smart float | Capped height with measured gutter |
+
+## Character coverage
+
+The text sample includes curly quotes, an em dash, an en dash, and an ellipsis: “quoted text,” 1990–2000, one clause—then another, and a final pause…
+
+Accented names and words include José, Zürich, naïve, façade, and Ångström. Mathematical prose may also use symbols such as π, Δ, ≤, and → outside a display equation.
 `;
 
 const editor = document.querySelector<HTMLTextAreaElement>("#editor")!;
