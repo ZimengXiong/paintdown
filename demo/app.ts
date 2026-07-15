@@ -16,11 +16,23 @@ Images retain their proportions and do not upscale by default. Portrait images c
 
 This paragraph wraps beside the portrait. A measured gutter separates the text and image. The float ends before the next structural block.
 
+### Measure and rhythm
+
+Content width, line height, and paragraph spacing are independent. A narrower measure creates more line breaks; greater line height adds vertical space without changing the type size.
+
+Headings stay with the first lines of the block that follows them.
+
 ### Landscape figures
 
 Landscape images remain in block flow when floating would leave a narrow text column.
 
 ![A matte indigo, violet, and coral panoramic composition](${art("wide")})
+
+### Page flow
+
+Paragraphs split only when both fragments meet the minimum line count. Headings move with following content instead of sitting alone at a page edge.
+
+Block images remain in document order. Portrait floats clear before headings, lists, tables, and code.
 
 ---
 
@@ -30,12 +42,14 @@ Images taller than the usable page area are scaled to fit and aligned to the top
 
 ![A tall matte ember, rose, and aubergine composition](${art("tall")})
 
-Following prose wraps beside this portrait image.
+The height limit follows the usable page area, so page size and margins affect the figure cap. The aspect ratio does not change.
 
 ## Markdown details
 
 - Lists use consistent spacing and hanging indents
+  - Nested items retain their level
 - Headings use the selected display face
+- Inline \`code\` uses the selected code face
 - [Links remain continuous](https://github.com/ZimengXiong/paintdown)
 
 > Quotes sit beside a left rule.
