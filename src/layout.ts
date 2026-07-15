@@ -153,6 +153,17 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     table: [0.9, 0.9], image: [options.imageGap, options.imageGap], math: [0.9, 1], rule: [options.ruleSpace, options.ruleSpace],
   } as const;
 
+  const figureLeadHeadings = new Set<number>(), figureLeadParagraphs = new Set<number>();
+  if (options.layoutMode === "balanced") for (let index = 0; index < blocks.length; index++) {
+    if (blocks[index]?.type !== "heading") continue;
+    let cursor = index + 1, paragraphs = 0;
+    while (blocks[cursor]?.type === "paragraph" && paragraphs < 4) { cursor++; paragraphs++; }
+    if (paragraphs <= 3 && blocks[cursor]?.type === "image") {
+      figureLeadHeadings.add(index);
+      for (let lead = index + 1; lead < cursor; lead++) figureLeadParagraphs.add(lead);
+    }
+  }
+
   const gapBetween = (previous: Compiled | undefined, next: Compiled) => {
     if (!previous) return 0;
     const previousType = previous.endType ?? previous.type, nextType = next.startType ?? next.type;
@@ -316,12 +327,13 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       const atoms = textAtoms(runs, headingSize, contentWidth, headingSize * HEADING_LINE_HEIGHT[block.level - 1]!, {
         family: options.headingFont, letterSpacing: options.headingLetterSpacing, upper: smallCaps, tracking: smallCaps ? headingSize * 0.08 : 0,
       });
-      compiled.push({ type: block.type, atoms, before: options.headingBefore * scale * 0.75, after: options.headingAfter * scale * 0.8, keep: options.keepWithNext });
+      compiled.push({ type: block.type, atoms, before: options.headingBefore * scale * 0.75, after: options.headingAfter * scale * 0.8,
+        keep: options.keepWithNext || figureLeadHeadings.has(sourceIndex) });
     } else if (block.type === "paragraph") {
       let indent = options.indentStyle === "all" || (options.indentStyle === "book" && compiled.at(-1)?.type === "paragraph") ? em * 1.8 : 0;
       if (indent && block.runs.reduce((w, run) => w + measure(run.text, run.code ? em * 0.92 : em, run), 0) <= contentWidth) indent = 0;
       compiled.push({ type: block.type, atoms: textAtoms(block.runs, em, contentWidth, lineHeight, { firstIndent: indent, justify: options.justify }),
-        before: 0, after: spacing.paragraph[1], splitMin: 2 });
+        before: 0, after: spacing.paragraph[1], splitMin: 2, keep: figureLeadParagraphs.has(sourceIndex) });
     } else if (block.type === "list") {
       const atoms: Atom[] = []; let ordered = 0;
       block.items.forEach((item, itemIndex) => {
@@ -481,10 +493,10 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     if (block.type !== "image" || block.flow === "float" || block.atoms.length !== 1) return;
     const atom = block.atoms[0]!, image = atom.items.find(item => item.type === "image");
     if (!image || atom.height <= available) return;
-    if (image.asset.width >= image.asset.height) return;
+    if (image.asset.width >= image.asset.height && options.layoutMode !== "compact") return;
     const nonImageHeight = atom.height - image.height, targetImageHeight = available - nonImageHeight;
     const scale = targetImageHeight / image.height;
-    if (scale < 0.55 || scale >= 1) return;
+    if (scale < (options.layoutMode === "compact" ? 0.42 : 0.55) || scale >= 1) return;
     const oldWidth = image.width, oldHeight = image.height;
     image.width *= scale; image.height = targetImageHeight;
     if (options.imageAlign === "center") image.x += (oldWidth - image.width) / 2;

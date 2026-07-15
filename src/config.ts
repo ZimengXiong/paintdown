@@ -7,6 +7,7 @@ export const PAGE_SIZES = {
 
 export const DEFAULT_OPTIONS: RenderOptions = {
   pageSize: "letter",
+  layoutMode: "balanced",
   marginX: 60,
   marginTop: 60,
   marginBottom: 60,

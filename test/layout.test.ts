@@ -143,6 +143,39 @@ describe("image layout", () => {
     expect(next.y).toBeGreaterThanOrEqual(image.y + image.height);
   });
 
+  it("offers balanced figure anchoring and compact page filling", () => {
+    const filler = Array.from({ length: 18 }, (_, index) => ({ type: "paragraph" as const, runs: [{ text: `Filler-${index}` }] }));
+    const blocks = [...filler,
+      { type: "heading" as const, level: 2 as const, runs: [{ text: "FigureHeading" }] },
+      { type: "paragraph" as const, runs: [{ text: "A short lead paragraph." }] },
+      { type: "image" as const, source: "wide.png", alt: "", asset: asset(1200, 400) },
+    ];
+    const balanced = layoutDocument(blocks, undefined, { layoutMode: "balanced" });
+    const compact = layoutDocument(blocks, undefined, { layoutMode: "compact" });
+    const pageOf = (layout: typeof balanced, text: string) => layout.pages.findIndex(page => page.some(item => item.type === "text" && item.text === text));
+    const imagePage = (layout: typeof balanced) => layout.pages.findIndex(page => page.some(item => item.type === "image"));
+    expect(pageOf(balanced, "FigureHeading")).toBe(imagePage(balanced));
+    expect(pageOf(balanced, "FigureHeading")).toBe(1);
+    expect(pageOf(compact, "FigureHeading")).toBe(0);
+    expect(imagePage(compact)).toBe(0);
+    const balancedImage = balanced.pages.flat().find(item => item.type === "image")!;
+    const compactImage = compact.pages.flat().find(item => item.type === "image")!;
+    expect(compactImage.width).toBeLessThan(balancedImage.width);
+  });
+
+  it("does not anchor more than three lead paragraphs to a figure", () => {
+    const filler = Array.from({ length: 14 }, (_, index) => ({ type: "paragraph" as const, runs: [{ text: `Filler-${index}` }] }));
+    const leads = Array.from({ length: 4 }, (_, index) => ({ type: "paragraph" as const, runs: [{ text: `Lead-${index}` }] }));
+    const layout = layoutDocument([...filler,
+      { type: "heading", level: 2, runs: [{ text: "LongIntroduction" }] }, ...leads,
+      { type: "image", source: "wide.png", alt: "", asset: asset(1200, 400) },
+    ], undefined, { layoutMode: "balanced" });
+    const headingPage = layout.pages.findIndex(page => page.some(item => item.type === "text" && item.text === "LongIntroduction"));
+    const imagePage = layout.pages.findIndex(page => page.some(item => item.type === "image"));
+    expect(headingPage).toBe(0);
+    expect(imagePage).toBe(1);
+  });
+
   it("decorates unused space inside a smart float column", () => {
     const layout = layoutDocument([
       { type: "image", source: "portrait.png", alt: "", asset: asset(800, 1200) },
