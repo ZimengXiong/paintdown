@@ -98,6 +98,12 @@ async function update() {
   } catch (error) { if (current === sequence) status.textContent = error instanceof Error ? error.message : String(error); }
 }
 
+let settingsTimer = 0;
+function scheduleUpdate(delay = 55) {
+  clearTimeout(settingsTimer);
+  settingsTimer = window.setTimeout(() => { void update(); }, delay);
+}
+
 const settings = document.querySelector<HTMLElement>("#settings")!;
 const settingsButton = document.querySelector<HTMLButtonElement>("#settingsBtn")!;
 const configControls = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-config]")];
@@ -181,11 +187,11 @@ for (const control of configControls) control.addEventListener("input", () => { 
     : control instanceof HTMLInputElement && control.type === "range" ? Number(control.value)
     : control.value;
   if (key === "bodyFont" || key === "headingFont" || key === "monoFont") await ensureFont(String(mutableConfig[key]));
-  syncSettings(); await update();
+  syncSettings(); scheduleUpdate();
 })(); });
 marginControl.addEventListener("input", () => {
   demoConfig.marginX = demoConfig.marginTop = demoConfig.marginBottom = Number(marginControl.value);
-  syncSettings(); void update();
+  syncSettings(); scheduleUpdate();
 });
 const settingsBackdrop = document.querySelector<HTMLElement>("#settingsBackdrop")!;
 const setSettingsOpen = (open: boolean) => {
@@ -198,7 +204,7 @@ document.querySelector("#settingsClose")!.addEventListener("click", () => setSet
 settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
 document.querySelector("#resetBtn")!.addEventListener("click", () => {
   for (const key of Object.keys(mutableConfig)) delete mutableConfig[key];
-  Object.assign(demoConfig, demoDefaults); syncSettings(); void update();
+  Object.assign(demoConfig, demoDefaults); syncSettings(); scheduleUpdate(0);
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") setSettingsOpen(false); });
 const workspace = document.querySelector<HTMLElement>("#workspace")!;
@@ -211,7 +217,7 @@ syncSettings();
 
 let timer = 0;
 editor.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(update, 180); });
-window.addEventListener("resize", update);
+window.addEventListener("resize", () => scheduleUpdate(80));
 document.querySelector("#pdfBtn")!.addEventListener("click", async () => downloadBytes(await renderer.pdf(editor.value), "document.pdf", "application/pdf"));
 document.querySelector("#htmlBtn")!.addEventListener("click", async () => downloadBytes(new TextEncoder().encode(await renderer.html(editor.value)), "document.html", "text/html"));
 await update();

@@ -151,6 +151,25 @@
     .setting select,.font-upload .button{background:#f8f8f5!important;box-shadow:inset 0 1px 1px #fff,inset 0 -1px 3px #34393e10!important}
     #resetBtn{margin:8px 16px 0;width:calc(100% - 32px);background:#f8f8f5!important}
   </style>
+  <style>
+    :root{--lean-bg:#c8caca;--lean-pane:#f1f2ef;--lean-head:#e9eae7;--lean-control:#fafaf7;--lean-ink:#25282c;--lean-muted:#6f7479}
+    body{grid-template-rows:48px 1fr;padding:0 8px 8px;background:var(--lean-bg);transition:grid-template-columns .14s ease}
+    body.settings-open{grid-template-columns:320px minmax(0,1fr);column-gap:8px}
+    .topbar{align-self:center;height:34px;padding:0 9px;border-radius:9px!important;background:var(--lean-head)!important;box-shadow:inset 0 1px 1px #fff9!important}
+    .brand{font-size:15px}.top-actions{gap:4px}.button{min-height:27px;padding:0 9px;border-radius:6px!important;background:var(--lean-control)!important;box-shadow:none!important;font-size:11px}.button.primary{background:#292c30!important}.button.icon{width:27px}
+    #workspace{grid-template-columns:minmax(300px,38%) minmax(0,1fr);gap:8px;padding:8px;border-radius:11px!important;background:#bec0c0!important;box-shadow:inset 0 1px 3px #34383d12!important}
+    .pane,#editorPane,#settings{border-radius:8px!important;background:var(--lean-pane)!important;box-shadow:inset 0 1px 1px #fff9!important}
+    .pane{grid-template-rows:34px 1fr}.pane-head,.settings-head{height:34px;min-height:34px;background:var(--lean-head)!important;box-shadow:none!important;color:var(--lean-muted);font-size:11px}
+    .pane-head{padding:0 11px}#editorPane textarea{padding:20px 21px 64px;background:#f8f8f5!important;font-size:12px;line-height:1.58}
+    #previewPane{padding:18px 16px 52px;background:#bec0c0}.mkd-page-wrap{margin-bottom:16px}.mkd-page{border-radius:1px!important;box-shadow:0 3px 12px #34383c20!important}
+    #settings{width:320px;padding:0 8px 14px;transition:transform .14s ease,visibility 0s linear .14s;box-shadow:inset 0 1px 1px #fff9!important}
+    #settings.open{transition:transform .14s ease,visibility 0s}.settings-head{margin:0 -8px 3px;padding:0 11px;border-radius:8px 8px 0 0!important}.settings-head .button{width:23px;min-height:23px;padding:0}
+    #settings fieldset,#settings fieldset:first-of-type{padding:12px 11px 13px}.setting{grid-template-columns:112px minmax(0,1fr);min-height:30px;gap:9px;margin:2px 0;font-size:11px}
+    #settings legend{margin-bottom:7px;font-size:9px;letter-spacing:.05em}.setting select{height:28px;padding:0 25px 0 8px;border-radius:6px!important;font-size:11px}.range-wrap{grid-template-columns:minmax(0,1fr) 36px;gap:5px}.range-wrap output{width:36px;font-size:10px}.setting input[type=checkbox]{width:14px;height:14px;margin-right:4px}.font-upload .button{height:28px;font-size:11px}
+    #resetBtn{width:calc(100% - 22px);height:29px;margin:5px 11px 0}
+    @media(max-width:1100px){body.settings-open{grid-template-columns:300px minmax(0,1fr)}#settings{width:300px}.setting{grid-template-columns:104px minmax(0,1fr)}}
+    @media(max-width:680px){body{grid-template-rows:48px 1fr;padding:0 5px 5px}body.settings-open{grid-template-columns:calc(100vw - 10px) 0}#workspace{padding:5px}.pane{inset:5px}#settings{width:calc(100vw - 10px)}.setting{grid-template-columns:112px minmax(0,1fr)}}
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -216,6 +235,6 @@
     </fieldset>
     <button class="button" id="resetBtn" type="button">Reset</button>
   </aside>
-  <script type="module" src="./demo/dist/demo.js?v=paintdown-code-wrap-1"></script>
+  <script type="module" src="./demo/dist/demo.js?v=paintdown-lean-1"></script>
 </body>
 </html>
