@@ -15,14 +15,14 @@ Paintdown is a deterministic Markdown layout engine and native PDF writer for Ty
 - Responsive images with block and editorial float layouts
 - Real font measurement and embedded TrueType fonts
 - Widow/orphan-aware pagination and heading keep rules
-- Balanced and compact figure-placement policies
+- Smart chronological figure flow
 - Matching browser preview, HTML export, and PDF geometry
 - No uploads; the browser demo works entirely on-device
 - Local folder picker and folder drag-and-drop with relative image resolution
 
 The static workbench loads `README.md`, `index.md`, or the first Markdown file from a selected folder. Relative PNG and JPEG references are resolved from that local folder in memory; nothing is sent to a server.
 
-Balanced layout keeps short section introductions with their figures and respects peer section boundaries. Compact layout continues chronologically valid headings, paragraphs, and lists beside a portrait until the image ends. Both policies use the same image dimensions.
+Short section introductions stay with their figures. Chronologically valid headings, paragraphs, lists, and display math continue beside a portrait until the image ends. Figure flow never changes the computed image dimensions.
 
 ## Quick start
 

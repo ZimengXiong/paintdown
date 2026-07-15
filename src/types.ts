@@ -115,8 +115,6 @@ export interface LayoutResult {
 
 export interface RenderOptions {
   pageSize: "letter" | "a4";
-  /** Balanced respects section boundaries; compact adopts later flow blocks into available figure columns. */
-  layoutMode: "balanced" | "compact";
   marginX: number;
   marginTop: number;
   marginBottom: number;

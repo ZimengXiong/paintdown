@@ -154,7 +154,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
   } as const;
 
   const figureLeadHeadings = new Set<number>(), figureLeadParagraphs = new Set<number>();
-  if (options.layoutMode === "balanced") for (let index = 0; index < blocks.length; index++) {
+  for (let index = 0; index < blocks.length; index++) {
     if (blocks[index]?.type !== "heading") continue;
     let cursor = index + 1, paragraphs = 0;
     while (blocks[cursor]?.type === "paragraph" && paragraphs < 4) { cursor++; paragraphs++; }
@@ -206,6 +206,34 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
         });
       });
       return { type: block.type, atoms, before: spacing.list[0], after: spacing.list[1], splitMin: 1 };
+    }
+    if (block.type === "math") {
+      if (block.asset) {
+        const ratio = block.asset.pixelRatio ?? 1;
+        const intrinsicWidth = block.asset.widthEm != null ? block.asset.widthEm * em * 1.12 : block.asset.width / ratio * 72 / options.imageDpi;
+        const intrinsicHeight = block.asset.heightEm != null ? block.asset.heightEm * em * 1.12 : block.asset.height / ratio * 72 / options.imageDpi;
+        const scale = Math.min(1, width / intrinsicWidth), mathWidth = intrinsicWidth * scale, mathHeight = intrinsicHeight * scale;
+        return { type: block.type, atoms: [{ height: mathHeight, items: [{ type: "image", x: x + (width - mathWidth) / 2,
+          y: 0, width: mathWidth, height: mathHeight, asset: block.asset }] }], before: spacing.math[0], after: spacing.math[1] };
+      }
+      const equation = typesetDisplayMath(block.source, em * 1.12, options.bodyFont,
+        (text, size, italic) => fonts.measure(text, size, { family: options.bodyFont, italic }));
+      const scale = equation.width > width ? width / equation.width : 1;
+      if (scale < 1) {
+        for (const item of equation.items) {
+          if (item.type === "text" || item.type === "rect" || item.type === "image") {
+            item.x *= scale; item.y *= scale;
+            if (item.type === "text") item.size *= scale; else { item.width *= scale; item.height *= scale; }
+          } else { item.x1 *= scale; item.x2 *= scale; item.y1 *= scale; item.y2 *= scale; item.width *= scale; }
+        }
+        equation.width *= scale; equation.height *= scale;
+      }
+      const offset = x + (width - equation.width) / 2;
+      for (const item of equation.items) {
+        if (item.type === "text" || item.type === "rect" || item.type === "image") item.x += offset;
+        else { item.x1 += offset; item.x2 += offset; }
+      }
+      return { type: block.type, atoms: [{ height: equation.height, items: equation.items }], before: spacing.math[0], after: spacing.math[1] };
     }
     return undefined;
   }
@@ -270,7 +298,6 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     for (let index = imageIndex + 1; index < blocks.length; index++) {
       const source = blocks[index]!;
       if (source.type === "heading") {
-        if (options.layoutMode === "balanced" && source.level <= heading.level) break;
         const introducesImage = blocks.slice(index + 1, index + 3).some(next => next.type === "image");
         if (introducesImage) break;
         const headingPart = columnBlock(source, textWidth, textX), following = blocks[index + 1],

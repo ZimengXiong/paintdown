@@ -8,10 +8,6 @@ const asset = (width: number, height: number): ImageAsset => ({
 });
 
 describe("typography defaults", () => {
-  it("uses compact chronological flow by default", () => {
-    expect(DEFAULT_OPTIONS.layoutMode).toBe("compact");
-  });
-
   it("uses bold headings by default but regular body text", () => {
     expect(DEFAULT_OPTIONS.boldHeadings).toBe(true);
     const layout = layoutDocument([
@@ -123,7 +119,7 @@ describe("image layout", () => {
     expect(Math.abs((prose?.y ?? Infinity) - (image?.y ?? 0))).toBeLessThan(DEFAULT_OPTIONS.fontSize * DEFAULT_OPTIONS.lineHeight);
   });
 
-  it("packs a section lead and its subsection beside a portrait", () => {
+  it("packs a section lead and subsequent flow beside a portrait", () => {
     const layout = layoutDocument([
       { type: "heading", level: 2, runs: [{ text: "Meet the herd" }] },
       { type: "paragraph", runs: [{ text: "A short introduction to the portrait." }] },
@@ -134,20 +130,16 @@ describe("image layout", () => {
         { depth: 0, ordered: false, runs: [{ text: "Quiet humming" }] },
         { depth: 0, ordered: false, runs: [{ text: "Padded feet" }] },
       ] },
-      { type: "heading", level: 2, runs: [{ text: "Next section" }] },
-      { type: "paragraph", runs: [{ text: "Back in the full column." }] },
-    ], undefined, { layoutMode: "balanced" });
+    ]);
     const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
     for (const word of ["Meet", "Field", "Pasture", "Quiet"]) {
       const item = page.find(candidate => candidate.type === "text" && candidate.text === word)!;
       expect(item.x).toBeLessThan(image.x);
       expect(item.y).toBeLessThan(image.y + image.height);
     }
-    const next = page.find(item => item.type === "text" && item.text === "Next")!;
-    expect(next.y).toBeGreaterThanOrEqual(image.y + image.height);
   });
 
-  it("lets compact portrait flow adopt later sections until the image ends", () => {
+  it("adopts later chronological sections until the portrait ends", () => {
     const blocks = [
       { type: "heading" as const, level: 2 as const, runs: [{ text: "Tall order" }] },
       { type: "paragraph" as const, runs: [{ text: "A short introduction." }] },
@@ -160,36 +152,28 @@ describe("image layout", () => {
         { depth: 0, ordered: false, runs: [{ text: "Nested levels" }] },
       ] },
     ];
-    const balanced = layoutDocument(blocks, undefined, { layoutMode: "balanced" });
-    const compact = layoutDocument(blocks, undefined, { layoutMode: "compact" });
-    const balancedImage = balanced.pages.flat().find(item => item.type === "image")!;
-    const balancedNext = balanced.pages.flat().find(item => item.type === "text" && item.text === "Markdown")!;
-    expect(balancedNext.y).toBeGreaterThanOrEqual(balancedImage.y + balancedImage.height);
-    const compactImage = compact.pages.flat().find(item => item.type === "image")!;
-    const compactNext = compact.pages.flat().find(item => item.type === "text" && item.text === "Markdown")!;
-    expect(compactNext.x).toBeLessThan(compactImage.x);
-    expect(compactNext.y).toBeLessThan(compactImage.y + compactImage.height);
+    const layout = layoutDocument(blocks);
+    const image = layout.pages.flat().find(item => item.type === "image")!;
+    const next = layout.pages.flat().find(item => item.type === "text" && item.text === "Markdown")!;
+    expect(next.x).toBeLessThan(image.x);
+    expect(next.y).toBeLessThan(image.y + image.height);
   });
 
-  it("changes figure anchoring without changing image dimensions", () => {
+  it("keeps a short landscape figure introduction with the unchanged image", () => {
     const filler = Array.from({ length: 18 }, (_, index) => ({ type: "paragraph" as const, runs: [{ text: `Filler-${index}` }] }));
     const blocks = [...filler,
       { type: "heading" as const, level: 2 as const, runs: [{ text: "FigureHeading" }] },
       { type: "paragraph" as const, runs: [{ text: "A short lead paragraph." }] },
       { type: "image" as const, source: "wide.png", alt: "", asset: asset(1200, 400) },
     ];
-    const balanced = layoutDocument(blocks, undefined, { layoutMode: "balanced" });
-    const compact = layoutDocument(blocks, undefined, { layoutMode: "compact" });
-    const pageOf = (layout: typeof balanced, text: string) => layout.pages.findIndex(page => page.some(item => item.type === "text" && item.text === text));
-    const imagePage = (layout: typeof balanced) => layout.pages.findIndex(page => page.some(item => item.type === "image"));
-    expect(pageOf(balanced, "FigureHeading")).toBe(imagePage(balanced));
-    expect(pageOf(balanced, "FigureHeading")).toBe(1);
-    expect(pageOf(compact, "FigureHeading")).toBe(0);
-    expect(imagePage(compact)).toBe(1);
-    const balancedImage = balanced.pages.flat().find(item => item.type === "image")!;
-    const compactImage = compact.pages.flat().find(item => item.type === "image")!;
-    expect(compactImage.width).toBeCloseTo(balancedImage.width);
-    expect(compactImage.height).toBeCloseTo(balancedImage.height);
+    const layout = layoutDocument(blocks);
+    const pageOf = (text: string) => layout.pages.findIndex(page => page.some(item => item.type === "text" && item.text === text));
+    const imagePage = layout.pages.findIndex(page => page.some(item => item.type === "image"));
+    expect(pageOf("FigureHeading")).toBe(imagePage);
+    expect(imagePage).toBe(1);
+    const image = layout.pages.flat().find(item => item.type === "image")!;
+    expect(image.width).toBeCloseTo(492);
+    expect(image.height).toBeCloseTo(164);
   });
 
   it("does not anchor more than three lead paragraphs to a figure", () => {
@@ -198,11 +182,27 @@ describe("image layout", () => {
     const layout = layoutDocument([...filler,
       { type: "heading", level: 2, runs: [{ text: "LongIntroduction" }] }, ...leads,
       { type: "image", source: "wide.png", alt: "", asset: asset(1200, 400) },
-    ], undefined, { layoutMode: "balanced" });
+    ]);
     const headingPage = layout.pages.findIndex(page => page.some(item => item.type === "text" && item.text === "LongIntroduction"));
     const imagePage = layout.pages.findIndex(page => page.some(item => item.type === "image"));
     expect(headingPage).toBe(0);
     expect(imagePage).toBe(1);
+  });
+
+  it("continues display math inside an active portrait wrap", () => {
+    const layout = layoutDocument([
+      { type: "heading", level: 2, runs: [{ text: "Tall order" }] },
+      { type: "paragraph", runs: [{ text: "A short introduction." }] },
+      { type: "image", source: "tall.png", alt: "", asset: asset(600, 1800) },
+      { type: "paragraph", runs: [{ text: "The aspect ratio stays intact." }] },
+      { type: "heading", level: 2, runs: [{ text: "Math break" }] },
+      { type: "paragraph", runs: [{ text: "Typesetting continues beside the figure." }] },
+      { type: "math", source: "\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}" },
+    ]);
+    const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
+    const math = page.filter(item => item.type === "text" && /[∫∞π]/u.test(item.text));
+    expect(math.length).toBeGreaterThan(0);
+    expect(math.every(item => item.x < image.x && item.y < image.y + image.height)).toBe(true);
   });
 
   it("decorates unused space inside a smart float column", () => {
