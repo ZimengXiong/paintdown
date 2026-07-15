@@ -143,6 +143,30 @@ describe("image layout", () => {
     expect(next.y).toBeGreaterThanOrEqual(image.y + image.height);
   });
 
+  it("lets compact portrait flow adopt later sections until the image ends", () => {
+    const blocks = [
+      { type: "heading" as const, level: 2 as const, runs: [{ text: "Tall order" }] },
+      { type: "paragraph" as const, runs: [{ text: "A short introduction." }] },
+      { type: "image" as const, source: "tall.png", alt: "", asset: asset(600, 1600) },
+      { type: "paragraph" as const, runs: [{ text: "The figure keeps its aspect ratio." }] },
+      { type: "heading" as const, level: 2 as const, runs: [{ text: "Markdown snacks" }] },
+      { type: "paragraph" as const, runs: [{ text: "Bold, italic, code, and links." }] },
+      { type: "list" as const, ordered: false, items: [
+        { depth: 0, ordered: false, runs: [{ text: "Hanging indents" }] },
+        { depth: 0, ordered: false, runs: [{ text: "Nested levels" }] },
+      ] },
+    ];
+    const balanced = layoutDocument(blocks, undefined, { layoutMode: "balanced" });
+    const compact = layoutDocument(blocks, undefined, { layoutMode: "compact" });
+    const balancedImage = balanced.pages.flat().find(item => item.type === "image")!;
+    const balancedNext = balanced.pages.flat().find(item => item.type === "text" && item.text === "Markdown")!;
+    expect(balancedNext.y).toBeGreaterThanOrEqual(balancedImage.y + balancedImage.height);
+    const compactImage = compact.pages.flat().find(item => item.type === "image")!;
+    const compactNext = compact.pages.flat().find(item => item.type === "text" && item.text === "Markdown")!;
+    expect(compactNext.x).toBeLessThan(compactImage.x);
+    expect(compactNext.y).toBeLessThan(compactImage.y + compactImage.height);
+  });
+
   it("offers balanced figure anchoring and compact page filling", () => {
     const filler = Array.from({ length: 18 }, (_, index) => ({ type: "paragraph" as const, runs: [{ text: `Filler-${index}` }] }));
     const blocks = [...filler,
@@ -184,6 +208,20 @@ describe("image layout", () => {
     const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
     const internalDots = page.filter(item => item.type === "rect" && item.x < image.x && item.y < image.y + image.height);
     expect(internalDots.length).toBeGreaterThan(10);
+  });
+
+  it("joins adjacent internal and page-level dot fields", () => {
+    const layout = layoutDocument([
+      { type: "image", source: "portrait.png", alt: "", asset: asset(800, 1200) },
+      { type: "paragraph", runs: [{ text: "Short copy." }] },
+    ], undefined, { blankSpaceDecoration: "dot-grid" });
+    const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
+    const dots = page.filter(item => item.type === "rect" && item.width < DEFAULT_OPTIONS.fontSize * 0.2);
+    const internal = dots.filter(dot => dot.x < image.x && dot.y < image.y + image.height);
+    const below = dots.filter(dot => dot.y >= image.y + image.height);
+    const internalBottom = Math.max(...internal.map(dot => dot.y + dot.height));
+    const belowTop = Math.min(...below.map(dot => dot.y));
+    expect(belowTop - internalBottom).toBeLessThan(DEFAULT_OPTIONS.fontSize);
   });
 });
 

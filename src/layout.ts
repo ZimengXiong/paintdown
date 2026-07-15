@@ -270,7 +270,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     for (let index = imageIndex + 1; index < blocks.length; index++) {
       const source = blocks[index]!;
       if (source.type === "heading") {
-        if (source.level <= heading.level) break;
+        if (options.layoutMode === "balanced" && source.level <= heading.level) break;
         const introducesImage = blocks.slice(index + 1, index + 3).some(next => next.type === "image");
         if (introducesImage) break;
         const headingPart = columnBlock(source, textWidth, textX), following = blocks[index + 1],
@@ -307,7 +307,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       previous = part;
     }
     if (options.blankSpaceDecoration === "dot-grid" && figureHeight - y >= 3 * em) {
-      const top = y + 1.25 * em, bottom = figureHeight - 0.75 * em;
+      const top = y + 1.25 * em, bottom = figureHeight;
       figureItems.unshift(...grayDotGrid(textX, top, textWidth, bottom - top, options.blankSpaceDecorationSeed ^ 0x51f15e ^ start));
     }
     return { block: { type: "image", atoms: [{ height: Math.max(figureHeight, y), items: figureItems }],
@@ -446,7 +446,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
           }
           const internalBlank = offset - textOffset;
           if (options.blankSpaceDecoration === "dot-grid" && internalBlank >= 3 * em) {
-            const fieldTop = textOffset + 1.25 * em, fieldBottom = offset - 0.75 * em;
+            const fieldTop = textOffset + 1.25 * em, fieldBottom = offset;
             figureItems.unshift(...grayDotGrid(textX, fieldTop, textWidth, fieldBottom - fieldTop, options.blankSpaceDecorationSeed ^ 0x51f15e ^ sourceIndex));
           }
           compiled.push({ type: block.type, atoms: [{ height: Math.max(offset, textOffset), items: figureItems }], before: spacing.image[0], after: spacing.paragraph[1], flow: "float" });
@@ -568,8 +568,12 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       : item.type === "rect" || item.type === "image" ? item.y + item.height
       : Math.max(item.y1, item.y2) + item.width / 2;
     pages.forEach((pageItems, pageIndex) => {
-      const occupiedBottom = pageItems.reduce((maximum, item) => Math.max(maximum, itemBottom(item)), options.marginTop);
-      const blankTop = occupiedBottom + 1.5 * em, available = bottom - blankTop;
+      const isDot = (item: DrawItem) => item.type === "rect" && item.width <= em * 0.2 && item.height <= em * 0.2;
+      const contentBottom = pageItems.reduce((maximum, item) => isDot(item) ? maximum : Math.max(maximum, itemBottom(item)), options.marginTop);
+      const dotBottom = pageItems.reduce((maximum, item) => isDot(item) ? Math.max(maximum, itemBottom(item)) : maximum, 0);
+      const joinsExistingField = dotBottom >= contentBottom - 1.5 * em;
+      const blankTop = joinsExistingField ? Math.max(contentBottom, dotBottom) : contentBottom + 1.5 * em;
+      const available = bottom - blankTop;
       if (available < 2.75 * em) return;
       const fieldHeight = available, fieldTop = blankTop;
       pageItems.unshift(...grayDotGrid(contentX, fieldTop, contentWidth, fieldHeight, options.blankSpaceDecorationSeed ^ 0xd075eed ^ pageIndex));
