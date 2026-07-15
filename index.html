@@ -189,6 +189,8 @@
     .range-wrap output{color:#697075;text-shadow:0 1px #fff}.setting input[type=range],.setting input[type=checkbox]{accent-color:var(--retro-blue)}
     #resetBtn{border-color:#a7aaac!important}
     .view-switch{border:1px solid #9fa3a5!important;background:#cfd2d1!important;box-shadow:inset 0 1px 2px #5a60654a!important;border-radius:6px}.view-switch button{border-radius:4px}.view-switch button.active{background:linear-gradient(#fff,#dedfdd);box-shadow:0 1px 1px #4c51562e}
+    #dropHint{position:fixed;z-index:100;inset:56px 16px 16px;display:grid;place-items:center;border:2px dashed #2d6eb7;border-radius:9px;background:#dceaf8e8;color:#245d9e;font-size:14px;font-weight:600;text-shadow:0 1px #fff;opacity:0;pointer-events:none;transition:opacity .1s}.folder-dragging #dropHint{opacity:1}
+    @media(max-width:680px){#openFolderBtn{display:inline-flex!important}#dropHint{inset:48px 8px 8px}}
   </style>
 </head>
 <body>
@@ -196,6 +198,8 @@
     <a class="brand" href="./">paintdown</a>
     <div class="view-switch" aria-label="Mobile workspace view"><button type="button" data-view-target="editor">Write</button><button type="button" class="active" data-view-target="preview">Preview</button></div>
     <nav class="top-actions" aria-label="Document actions">
+      <button class="button" id="openFolderBtn" type="button">Open folder</button>
+      <input id="folderInput" type="file" webkitdirectory multiple hidden aria-label="Open a Markdown folder">
       <a class="button" href="https://github.com/ZimengXiong/paintdown">GitHub</a>
       <button class="button" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">Tune</button>
       <button class="button" id="htmlBtn" type="button">Export HTML</button>
@@ -213,6 +217,8 @@
       <div id="previewPane"></div>
     </section>
   </main>
+
+  <div id="dropHint" aria-hidden="true">Drop a Markdown folder</div>
 
   <div id="settingsBackdrop" aria-hidden="true"></div>
   <aside id="settings" aria-label="Rendering settings" aria-hidden="true">
@@ -255,6 +261,6 @@
     </fieldset>
     <button class="button" id="resetBtn" type="button">Reset</button>
   </aside>
-  <script type="module" src="./demo/dist/demo.js?v=paintdown-2010-1"></script>
+  <script type="module" src="./demo/dist/demo.js?v=paintdown-folders-1"></script>
 </body>
 </html>

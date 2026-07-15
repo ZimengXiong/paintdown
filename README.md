@@ -17,6 +17,9 @@ Paintdown is a deterministic Markdown layout engine and native PDF writer for Ty
 - Widow/orphan-aware pagination and heading keep rules
 - Matching browser preview, HTML export, and PDF geometry
 - No uploads; the browser demo works entirely on-device
+- Local folder picker and folder drag-and-drop with relative image resolution
+
+The static workbench loads `README.md`, `index.md`, or the first Markdown file from a selected folder. Relative PNG and JPEG references are resolved from that local folder in memory; nothing is sent to a server.
 
 ## Quick start
 

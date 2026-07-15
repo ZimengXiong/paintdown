@@ -1,4 +1,4 @@
-import { createFetchImageResolver, createRenderer, DEFAULT_OPTIONS } from "../src/index.js";
+import { createFetchImageResolver, createRenderer, decodeImage, DEFAULT_OPTIONS } from "../src/index.js";
 import { createFontFamily, fontSlot, parseTrueType } from "../src/fonts.js";
 import { downloadBytes, registerBrowserFonts, renderPreview } from "../src/browser.js";
 import { loadInter } from "../src/inter.js";
@@ -73,6 +73,15 @@ const preview = document.querySelector<HTMLElement>("#previewPane")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const inter = loadInter();
 const decorationSeed = Math.floor(Math.random() * 0x100000000);
+const localFiles = new Map<string, File>();
+let markdownPath = "";
+const fetchImage = createFetchImageResolver(fetch, document.baseURI);
+const cleanPath = (path: string) => path.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
+const localImagePath = (source: string) => {
+  const plain = source.split(/[?#]/, 1)[0]!;
+  try { return cleanPath(decodeURIComponent(new URL(plain, `https://paintdown.local/${markdownPath}`).pathname)); }
+  catch { return cleanPath(plain); }
+};
 const demoDefaults: RenderOptions = { ...DEFAULT_OPTIONS,
   bodyFont: inter.body.id, headingFont: inter.display.id, boldHeadings: true,
   marginX: 60, marginTop: 60, marginBottom: 60,
@@ -83,7 +92,11 @@ await registerBrowserFonts([inter.body, inter.display]);
 const renderer = createRenderer({
   fonts: [inter.body, inter.display],
   config: demoConfig,
-  imageResolver: createFetchImageResolver(fetch, document.baseURI),
+  imageResolver: async source => {
+    const file = localFiles.get(localImagePath(source));
+    if (!file) return fetchImage(source);
+    return decodeImage(new Uint8Array(await file.arrayBuffer()), source, file.type || undefined);
+  },
 });
 editor.value = sample;
 
@@ -103,6 +116,72 @@ function scheduleUpdate(delay = 55) {
   clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(() => { void update(); }, delay);
 }
+
+type DroppedEntry = {
+  isFile: boolean; isDirectory: boolean; name: string; fullPath: string;
+  file?: (success: (file: File) => void, failure?: (error: DOMException) => void) => void;
+  createReader?: () => { readEntries: (success: (entries: DroppedEntry[]) => void, failure?: (error: DOMException) => void) => void };
+};
+
+async function filesFromEntry(entry: DroppedEntry): Promise<{ path: string; file: File }[]> {
+  if (entry.isFile && entry.file) {
+    const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
+    return [{ path: cleanPath(entry.fullPath || file.name), file }];
+  }
+  if (!entry.isDirectory || !entry.createReader) return [];
+  const reader = entry.createReader(), children: DroppedEntry[] = [];
+  while (true) {
+    const batch = await new Promise<DroppedEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    if (!batch.length) break;
+    children.push(...batch);
+  }
+  return (await Promise.all(children.map(filesFromEntry))).flat();
+}
+
+async function openLocalFolder(entries: { path: string; file: File }[]) {
+  if (!entries.length) return;
+  localFiles.clear();
+  for (const entry of entries) localFiles.set(cleanPath(entry.path), entry.file);
+  const markdown = entries.filter(entry => /\.(?:md|markdown)$/i.test(entry.path)).sort((a, b) => {
+    const rank = (path: string) => /(^|\/)readme\.md$/i.test(path) ? 0 : /(^|\/)index\.md$/i.test(path) ? 1 : 2;
+    return rank(a.path) - rank(b.path) || a.path.localeCompare(b.path);
+  })[0];
+  if (markdown) {
+    markdownPath = cleanPath(markdown.path);
+    editor.value = await markdown.file.text();
+    status.textContent = `Opened ${markdownPath}`;
+  } else {
+    const root = cleanPath(entries[0]!.path).split("/")[0] ?? "";
+    markdownPath = root ? `${root}/document.md` : "document.md";
+    status.textContent = `${entries.length} local asset${entries.length === 1 ? "" : "s"} attached`;
+  }
+  scheduleUpdate(0);
+}
+
+const folderInput = document.querySelector<HTMLInputElement>("#folderInput")!;
+document.querySelector("#openFolderBtn")!.addEventListener("click", () => folderInput.click());
+folderInput.addEventListener("change", () => {
+  const entries = [...folderInput.files ?? []].map(file => ({ path: file.webkitRelativePath || file.name, file }));
+  void openLocalFolder(entries).finally(() => { folderInput.value = ""; });
+});
+
+let dragDepth = 0;
+window.addEventListener("dragenter", event => {
+  if (![...(event.dataTransfer?.types ?? [])].includes("Files")) return;
+  event.preventDefault(); dragDepth++; document.body.classList.add("folder-dragging");
+});
+window.addEventListener("dragover", event => { if ([...(event.dataTransfer?.types ?? [])].includes("Files")) event.preventDefault(); });
+window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("folder-dragging"); } });
+window.addEventListener("drop", event => { void (async () => {
+  if (!event.dataTransfer || ![...event.dataTransfer.types].includes("Files")) return;
+  event.preventDefault(); dragDepth = 0; document.body.classList.remove("folder-dragging");
+  const roots = [...event.dataTransfer.items]
+    .map(item => (item as DataTransferItem & { webkitGetAsEntry?: () => DroppedEntry | null }).webkitGetAsEntry?.())
+    .filter((entry): entry is DroppedEntry => !!entry);
+  const entries = roots.length ? (await Promise.all(roots.map(filesFromEntry))).flat()
+    : [...event.dataTransfer.files].map(file => ({ path: file.webkitRelativePath || file.name, file }));
+  await openLocalFolder(entries);
+})().catch(error => { status.textContent = error instanceof Error ? error.message : String(error); }); });
 
 const settings = document.querySelector<HTMLElement>("#settings")!;
 const settingsButton = document.querySelector<HTMLButtonElement>("#settingsBtn")!;
