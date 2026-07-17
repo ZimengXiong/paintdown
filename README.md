@@ -24,16 +24,14 @@ The static workbench loads `README.md`, `index.md`, or the first Markdown file f
 
 Short section introductions stay with their figures. Chronologically valid headings, paragraphs, lists, and display math continue beside a portrait until the image ends. Figure flow never changes the computed image dimensions.
 
-## Quick start
-
-Paintdown is currently published from GitHub while the API settles.
+## CLI
 
 ```sh
-git clone https://github.com/ZimengXiong/paintdown.git
-cd paintdown
-npm ci
-npm run build
+npx paintdown document.md
+npx paintdown document.md -o document.html
 ```
+
+## TypeScript
 
 ```ts
 import { createFetchImageResolver, createRenderer } from "paintdown";
