@@ -7,4 +7,6 @@ export { createFetchImageResolver, decodeImage, resolveDocumentImages } from "./
 export { createFontFamily, FontRegistry, parseTrueType } from "./fonts.js";
 export { DEFAULT_OPTIONS, PAGE_SIZES } from "./config.js";
 export { latexToText } from "./math.js";
+export { loadNotoEmoji } from "./emoji.js";
+export { loadStandardFonts } from "./standard-fonts.js";
 export type * from "./types.js";

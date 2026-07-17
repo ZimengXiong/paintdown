@@ -4,13 +4,13 @@ import { resolveDocumentImages } from "./images.js";
 import { layoutDocument } from "./layout.js";
 import { parseMarkdown } from "./markdown.js";
 import { renderPdf } from "./pdf.js";
-import { loadInter } from "./inter.js";
+import { loadStandardFonts } from "./standard-fonts.js";
 import type { MarkdownDocument, RendererOptions } from "./types.js";
 
 export function createRenderer(options: RendererOptions = {}) {
-  const inter = loadInter();
-  const fonts = new FontRegistry([inter.body, inter.display, ...(options.fonts ?? [])]);
-  const config = { bodyFont: inter.body.id, headingFont: inter.display.id, ...options.config };
+  const standard = loadStandardFonts();
+  const fonts = new FontRegistry([standard.body, standard.display, standard.mono, standard.emoji, ...(options.fonts ?? [])]);
+  const config = { bodyFont: standard.body.id, headingFont: standard.display.id, monoFont: standard.mono.id, ...options.config };
   const prepare = async (source: string | MarkdownDocument): Promise<MarkdownDocument> => {
     let document = typeof source === "string" ? parseMarkdown(source) : source;
     const hasMathRuns = (block: import("./types.js").Block): boolean => block.type === "paragraph" || block.type === "heading" ? block.runs.some(run => run.mathSource)

@@ -8,17 +8,21 @@ const base64 = (bytes: Uint8Array) => {
 };
 
 export async function registerBrowserFonts(families: FontFamily[]): Promise<void> {
-  for (const family of families) for (const [slot, font] of Object.entries(family.styles)) if (font) {
-    const source = font.bytes.buffer.slice(font.bytes.byteOffset, font.bytes.byteOffset + font.bytes.byteLength) as ArrayBuffer;
-    const face = new FontFace(family.cssFamily, source, { weight: slot.includes("bold") ? "600" : "400", style: slot.includes("italic") ? "italic" : "normal" });
-    await face.load(); document.fonts.add(face);
+  for (const family of families) {
+    const registered = new Set<object>();
+    for (const [slot, font] of Object.entries(family.styles)) if (font && !registered.has(font)) {
+      registered.add(font);
+      const source = font.bytes.buffer.slice(font.bytes.byteOffset, font.bytes.byteOffset + font.bytes.byteLength) as ArrayBuffer;
+      const face = new FontFace(family.cssFamily, source, { weight: family.supplemental ? "400" : slot.includes("bold") ? "600" : "400", style: family.supplemental ? "normal" : slot.includes("italic") ? "italic" : "normal" });
+      await face.load(); document.fonts.add(face);
+    }
   }
 }
 
 function fontCss(item: Extract<DrawItem, { type: "text" }>, families: Map<string, FontFamily>): string {
-  const custom = families.get(item.family), family = custom ? `"${custom.cssFamily}"`
-    : item.mono ? "ui-monospace,SFMono-Regular,Consolas,monospace" : item.family === "serif" ? "Georgia,serif" : "Helvetica,Arial,sans-serif";
-  return `${item.italic ? "italic " : ""}${item.bold ? "600 " : "400 "}${item.size}px/${item.size}px ${family}`;
+  const custom = families.get(item.family);
+  if (!custom) throw new Error(`Preview font ${item.family} is not registered`);
+  return `${item.italic && !custom.supplemental ? "italic " : ""}${item.bold && !custom.supplemental ? "600 " : "400 "}${item.size}px/${item.size}px "${custom.cssFamily}"`;
 }
 
 export function renderPreview(container: HTMLElement, layout: LayoutResult, fontFamilies: FontFamily[] = [], maximumScale = 1.35): void {
@@ -30,7 +34,8 @@ export function renderPreview(container: HTMLElement, layout: LayoutResult, font
     const page = document.createElement("div"); page.className = "mkd-page";
     Object.assign(page.style, { position: "relative", width: `${layout.pageWidth}px`, height: `${layout.pageHeight}px`, transform: `translateZ(0) scale(${scale})`, transformOrigin: "top left", background: "white", boxShadow: "0 2px 14px #0003" });
     for (const item of pageItems) {
-      const element = document.createElement(item.type === "image" ? "img" : "div");
+      const vector = item.type === "image" && item.asset.vectorSvg;
+      const element = document.createElement(item.type === "image" && !vector ? "img" : "div");
       element.style.position = "absolute";
       if (item.type === "text") {
         element.textContent = item.text;
@@ -38,8 +43,12 @@ export function renderPreview(container: HTMLElement, layout: LayoutResult, font
       } else if (item.type === "rect") Object.assign(element.style, { left: `${item.x}px`, top: `${item.y}px`, width: `${item.width}px`, height: `${item.height}px`, background: color(item.color) });
       else if (item.type === "line") Object.assign(element.style, { left: `${Math.min(item.x1, item.x2)}px`, top: `${Math.min(item.y1, item.y2) - item.width / 2}px`, width: `${Math.abs(item.x2 - item.x1) || item.width}px`, height: `${Math.abs(item.y2 - item.y1) || item.width}px`, background: color(item.color) });
       else {
-        const image = element as HTMLImageElement; image.src = `data:${item.asset.mimeType};base64,${base64(item.asset.bytes)}`;
-        Object.assign(image.style, { left: `${item.x}px`, top: `${item.y}px`, width: `${item.width}px`, height: `${item.height}px`, objectFit: "contain" });
+        if (item.asset.vectorSvg) {
+          element.innerHTML = item.asset.vectorSvg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ');
+          const svg = element.firstElementChild as SVGElement | null;
+          if (svg) Object.assign((svg as SVGElement & { style: CSSStyleDeclaration }).style, { display: "block", width: "100%", height: "100%" });
+        } else (element as HTMLImageElement).src = `data:${item.asset.mimeType};base64,${base64(item.asset.bytes)}`;
+        Object.assign(element.style, { left: `${item.x}px`, top: `${item.y}px`, width: `${item.width}px`, height: `${item.height}px`, objectFit: "contain" });
       }
       page.append(element);
     }

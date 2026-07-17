@@ -1,7 +1,7 @@
 import { createFetchImageResolver, createRenderer, decodeImage, DEFAULT_OPTIONS } from "../src/index.js";
 import { createFontFamily, fontSlot, parseTrueType } from "../src/fonts.js";
 import { downloadBytes, registerBrowserFonts, renderPreview } from "../src/browser.js";
-import { loadInter } from "../src/inter.js";
+import { loadStandardFonts } from "../src/standard-fonts.js";
 import type { FontSlot, RenderOptions } from "../src/types.js";
 import sample from "../sample.md";
 
@@ -13,8 +13,8 @@ const proceduralSample = proceduralArt
 const editor = document.querySelector<HTMLTextAreaElement>("#editor")!;
 const preview = document.querySelector<HTMLElement>("#previewPane")!;
 const status = document.querySelector<HTMLElement>("#status")!;
-const inter = loadInter();
-const decorationSeed = Math.floor(Math.random() * 0x100000000);
+const standard = loadStandardFonts();
+const decorationSeed = DEFAULT_OPTIONS.blankSpaceDecorationSeed;
 const localFiles = new Map<string, File>();
 let markdownPath = "";
 const fetchImage = createFetchImageResolver(fetch, document.baseURI);
@@ -25,14 +25,12 @@ const localImagePath = (source: string) => {
   catch { return cleanPath(plain); }
 };
 const demoDefaults: RenderOptions = { ...DEFAULT_OPTIONS,
-  bodyFont: inter.body.id, headingFont: inter.display.id, boldHeadings: true,
+  bodyFont: standard.body.id, headingFont: standard.display.id, monoFont: standard.mono.id, boldHeadings: true,
   marginX: 60, marginTop: 60, marginBottom: 60,
   blankSpaceDecoration: "dot-grid", blankSpaceDecorationSeed: decorationSeed,
 };
 const demoConfig: RenderOptions = { ...demoDefaults };
-await registerBrowserFonts([inter.body, inter.display]);
 const renderer = createRenderer({
-  fonts: [inter.body, inter.display],
   config: demoConfig,
   imageResolver: async source => {
     const file = localFiles.get(localImagePath(source));
@@ -40,6 +38,7 @@ const renderer = createRenderer({
     return decodeImage(new Uint8Array(await file.arrayBuffer()), source, file.type || undefined);
   },
 });
+await registerBrowserFonts(renderer.fonts.values());
 editor.value = proceduralSample;
 
 let sequence = 0;

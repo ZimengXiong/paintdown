@@ -4,7 +4,6 @@ import type { DrawItem, ImageAsset, LayoutResult, ParsedFont, TextItem } from ".
 
 type ObjectBody = string | (string | Uint8Array)[];
 const encoder = new TextEncoder();
-const winAnsi: Record<number, number> = { 8216: 0x91, 8217: 0x92, 8220: 0x93, 8221: 0x94, 8211: 0x96, 8212: 0x97, 8230: 0x85, 8226: 0x95, 9702: 0xb0 };
 const number = (value: number) => `${Math.round(value * 100) / 100}`;
 const unicodeHex = (codePoint: number) => {
   if (codePoint <= 0xffff) return codePoint.toString(16).padStart(4, "0");
@@ -16,19 +15,14 @@ const unicodeHex = (codePoint: number) => {
 function escapePdf(value: string): string {
   let result = "";
   for (const char of value) {
-    let code = char.codePointAt(0)!; code = winAnsi[code] ?? code;
-    if (code > 255) result += "?";
-    else if (code === 40 || code === 41 || code === 92) result += `\\${String.fromCharCode(code)}`;
+    const code = char.codePointAt(0)!;
+    if (code > 0x7f) {
+      for (const byte of encoder.encode(char)) result += `\\${byte.toString(8).padStart(3, "0")}`;
+    } else if (code === 40 || code === 41 || code === 92) result += `\\${String.fromCharCode(code)}`;
     else if (code < 32 || code > 126) result += `\\${code.toString(8).padStart(3, "0")}`;
     else result += String.fromCharCode(code);
   }
   return result;
-}
-
-function baseFont(item: TextItem): string {
-  if (item.mono) return "F5";
-  const offset = (item.bold ? 1 : 0) + (item.italic ? 2 : 0);
-  return (item.family === "serif" ? ["F6", "F7", "F8", "F9"] : ["F1", "F2", "F3", "F4"])[offset]!;
 }
 
 function splitPixels(asset: ImageAsset): { color: Uint8Array; alpha?: Uint8Array; colorSpace: string } {
@@ -46,9 +40,6 @@ function splitPixels(asset: ImageAsset): { color: Uint8Array; alpha?: Uint8Array
 export function renderPdf(layout: LayoutResult, fonts = new FontRegistry()): Uint8Array {
   const objects: ObjectBody[] = [], add = (body: ObjectBody) => (objects.push(body), objects.length);
   add(""); add("");
-
-  const baseDefinitions = [["F1", "Helvetica"], ["F2", "Helvetica-Bold"], ["F3", "Helvetica-Oblique"], ["F4", "Helvetica-BoldOblique"], ["F5", "Courier"], ["F6", "Times-Roman"], ["F7", "Times-Bold"], ["F8", "Times-Italic"], ["F9", "Times-BoldItalic"]] as const;
-  const baseIds = new Map(baseDefinitions.map(([ref, name]) => [ref, add(`<< /Type /Font /Subtype /Type1 /BaseFont /${name} /Encoding /WinAnsiEncoding >>`)]));
 
   const cidFonts = new Map<string, { resource: string; font: ParsedFont; used: Map<number, number> }>();
   const images = new Map<string, { resource: string; asset: ImageAsset }>();
@@ -74,18 +65,15 @@ export function renderPdf(layout: LayoutResult, fonts = new FontRegistry()): Uin
         stream += `q ${number(item.width)} 0 0 ${number(item.height)} ${number(item.x)} ${number(layout.pageHeight - item.y - item.height)} cm /${resource} Do Q\n`;
       } else {
         const baseline = layout.pageHeight - item.y - item.size * 0.86, family = fonts.get(item.family);
-        let operation: string;
-        if (family) {
-          const cid = cidFor(item); let hex = "";
-          for (const char of item.text) {
-            const unicode = char.codePointAt(0)!, mapped = cid.font.cmap.get(unicode);
-            const replacementUnicode = cid.font.cmap.has(0xfffd) ? 0xfffd : 0x3f;
-            const glyph = mapped ?? cid.font.cmap.get(replacementUnicode) ?? 0;
-            cid.used.set(glyph, mapped == null ? replacementUnicode : unicode);
-            hex += glyph.toString(16).padStart(4, "0");
-          }
-          operation = `/${cid.resource} ${number(item.size)} Tf ${number(item.tracking ?? 0)} Tc ${item.color.join(" ")} rg ${number(item.x)} ${number(baseline)} Td <${hex}> Tj`;
-        } else operation = `/${baseFont(item)} ${number(item.size)} Tf ${number(item.tracking ?? 0)} Tc ${item.color.join(" ")} rg ${number(item.x)} ${number(baseline)} Td (${escapePdf(item.text)}) Tj`;
+        if (!family) throw new Error(`PDF font ${item.family} is not embedded`);
+        const cid = cidFor(item); let hex = "";
+        for (const char of item.text) {
+          const unicode = char.codePointAt(0)!, glyph = cid.font.cmap.get(unicode);
+          if (glyph == null) throw new Error(`PDF font ${item.family} has no glyph for U+${unicode.toString(16).toUpperCase().padStart(4, "0")}`);
+          cid.used.set(glyph, unicode);
+          hex += glyph.toString(16).padStart(4, "0");
+        }
+        const operation = `/${cid.resource} ${number(item.size)} Tf ${number(item.tracking ?? 0)} Tc ${item.color.join(" ")} rg ${number(item.x)} ${number(baseline)} Td <${hex}> Tj`;
         stream += `BT ${operation} ET\n`;
         if (item.strike) {
           const width = fonts.measure(item.text, item.size, { family: item.family, bold: item.bold, italic: item.italic, mono: item.mono, tracking: item.tracking });
@@ -101,7 +89,7 @@ export function renderPdf(layout: LayoutResult, fonts = new FontRegistry()): Uin
     pageStreams.push(stream); pageAnnotations.push(annotations);
   }
 
-  let fontResources = baseDefinitions.map(([ref]) => `/${ref} ${baseIds.get(ref)} 0 R`).join(" ");
+  let fontResources = "";
   for (const cid of cidFonts.values()) {
     const font = cid.font, scale = 1000 / font.upem, name = `MKD+${font.postscriptName.replace(/[^A-Za-z0-9.-]/g, "")}`;
     const file = add([`<< /Length ${font.bytes.length} /Length1 ${font.bytes.length} >>\nstream\n`, font.bytes, "\nendstream"]);

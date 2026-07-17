@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, FontRegistry, layoutDocument, parseMarkdown, renderHtml } from "../src/index.js";
-import type { ImageAsset } from "../src/types.js";
+import type { FontFamily, ImageAsset, ParsedFont } from "../src/types.js";
 
 const asset = (width: number, height: number): ImageAsset => ({
   id: `${width}x${height}`, source: "fixture.png", format: "png", mimeType: "image/png",
   width, height, channels: 3, bytes: new Uint8Array(), pixels: new Uint8Array(width * height * 3),
 });
+
+const fixtureFamily = (id: string, cmap: Map<number, number>, supplemental = false): FontFamily => {
+  const font: ParsedFont = {
+    bytes: new Uint8Array([0]), upem: 1000, numGlyphs: 4, cmap,
+    advances: new Uint16Array([500, 1000, 1000, 1000]), bbox: [0, 0, 1000, 1000],
+    ascent: 800, descent: -200, capHeight: 700, italicAngle: 0, family: id, subfamily: "Regular", postscriptName: id,
+  };
+  return { id, label: id, cssFamily: `mkd-${id}`, styles: { regular: font }, supplemental };
+};
+const basicCmap = new Map(Array.from({ length: 95 }, (_, index) => [index + 32, 1] as const));
+for (const codePoint of [0x2022, 0x25e6, 0x2013, 0x2014]) basicCmap.set(codePoint, 1);
+const htmlRegistry = new FontRegistry([fixtureFamily("embedded-test", basicCmap)]);
+const htmlConfig = { bodyFont: "embedded-test", headingFont: "embedded-test", monoFont: "embedded-test" };
+const exactHtml = (document: ReturnType<typeof parseMarkdown> | { source: string; blocks: import("../src/types.js").Block[] }) =>
+  renderHtml(document, htmlConfig, htmlRegistry.values());
 
 describe("typography defaults", () => {
   it("uses bold headings by default but regular body text", () => {
@@ -63,38 +78,66 @@ describe("typography defaults", () => {
 });
 
 describe("HTML output", () => {
-  it("uses retained vector math instead of enlarging the PDF raster", () => {
+  it("paints retained vector math at the shared display-list coordinates", () => {
     const vectorSvg = '<svg width="8ex" height="2ex" viewBox="0 0 800 200"><path d="M0 0h10v10z"/></svg>';
-    const html = renderHtml({ source: "", blocks: [{ type: "math", source: "x^2", asset: { ...asset(2400, 600), vectorSvg, widthEm: 4, heightEm: 1 } }] });
-    expect(html).toContain('<div class="math-display"');
+    const document = { source: "", blocks: [{ type: "math" as const, source: "x^2", asset: { ...asset(2400, 600), vectorSvg, widthEm: 4, heightEm: 1 } }] };
+    const layout = layoutDocument(document.blocks, htmlRegistry, htmlConfig), math = layout.pages[0]!.find(item => item.type === "image")!;
+    const html = exactHtml(document);
+    expect(html).toContain('class="paintmark-image paintmark-vector"');
     expect(html).toContain('<svg aria-hidden="true"');
+    expect(html).toContain(`left:${math.x}px;top:${math.y}px;width:${math.width}px;height:${math.height}px`);
     expect(html).not.toContain("data:image/png;base64");
   });
 
-  it("wraps fenced code instead of adding a horizontal scroller", () => {
-    const html = renderHtml(parseMarkdown("```ts\nconst exceptionallyLongIdentifier = createRendererWithManyArguments(markdown, options);\n```"));
-    expect(html).toContain("white-space:pre-wrap");
-    expect(html).toContain("overflow-wrap:anywhere");
-    expect(html).not.toContain("overflow:auto");
+  it("uses native wrapped code coordinates instead of browser reflow", () => {
+    const document = parseMarkdown("```ts\nconst exceptionallyLongIdentifier = createRendererWithManyArguments(markdown, options);\n```");
+    const layout = layoutDocument(document.blocks, htmlRegistry, htmlConfig), code = layout.pages.flat().filter(item => item.type === "text" && item.mono);
+    const html = exactHtml(document);
+    expect(new Set(code.map(item => item.y)).size).toBeGreaterThan(1);
+    for (const item of code) expect(html).toContain(`left:${item.x}px;top:${item.y}px`);
+    expect(html).not.toContain("<pre");
   });
 
-  it("renders GFM strikethrough as semantic HTML", () => {
-    const html = renderHtml(parseMarkdown("Keep ~~old words~~ here."));
-    expect(html).toContain("<del>old words</del>");
+  it("paints GFM strikethrough from the display list", () => {
+    const html = exactHtml(parseMarkdown("Keep ~~old words~~ here."));
+    expect(html).toContain("text-decoration:line-through");
+    expect(html).toContain(">old words</span>");
   });
 
-  it("smart-wraps portrait images around following structural content", () => {
-    const document = parseMarkdown("![Portrait](portrait.png)\n\n## Notes\n\n- one\n- two");
-    document.blocks[0] = { ...document.blocks[0]!, asset: asset(800, 1200) } as typeof document.blocks[number];
-    const html = renderHtml(document);
-    expect(html).toContain('figure class="smart-float right"');
-    expect(html).not.toContain("h1,h2,h3,.thematic-break");
+  it("shares smart-wrap geometry with the native display list", () => {
+    const document = parseMarkdown("## Portrait\n\nA lead.\n\n![Portrait](portrait.png)\n\n## Notes\n\n- one\n- two");
+    document.blocks[2] = { ...document.blocks[2]!, asset: asset(800, 1200) } as typeof document.blocks[number];
+    const layout = layoutDocument(document.blocks, htmlRegistry, htmlConfig);
+    const html = exactHtml(document);
+    const image = layout.pages[0]!.find(item => item.type === "image")!;
+    const notes = layout.pages[0]!.find(item => item.type === "text" && item.text === "Notes")!;
+    expect(notes.x).toBeLessThan(image.x);
+    expect(html).toContain(`left:${image.x}px;top:${image.y}px;width:${image.width}px;height:${image.height}px`);
+    expect(html).toContain(`left:${notes.x}px;top:${notes.y}px`);
   });
 
-  it("centers HTML captions against the shrink-wrapped image box", () => {
-    const html = renderHtml(parseMarkdown("![A caption](small.png)"));
-    expect(html).toContain("figure{display:table;width:max-content;max-width:100%");
-    expect(html).toContain("figcaption{display:table-caption;caption-side:bottom");
+  it("uses fixed pages rather than a second browser layout engine", () => {
+    const html = exactHtml(parseMarkdown("# One\n\nTwo"));
+    expect(html).toContain('class="paintmark-page"');
+    expect(html).toContain("position:absolute");
+    expect(html).not.toContain("<h1");
+    expect(html).not.toContain("<p>");
+  });
+
+  it("routes emoji through deterministic supplemental coverage", () => {
+    const registry = new FontRegistry([
+      fixtureFamily("primary", new Map([[0x20, 3], [0x3f, 3]])),
+      fixtureFamily("emoji", new Map([[0x1f3a8, 1], [0x1f4c4, 2]]), true),
+    ]);
+    const document = parseMarkdown("🎨 📄");
+    const config = { bodyFont: "primary", headingFont: "primary" };
+    const layout = layoutDocument(document.blocks, registry, config);
+    const emoji = layout.pages.flat().filter(item => item.type === "text" && /[🎨📄]/u.test(item.text));
+    expect(emoji.map(item => item.family)).toEqual(["emoji", "emoji"]);
+    const html = renderHtml(document, config, registry.values());
+    expect(html).toContain('font-family:"mkd-emoji"');
+    expect(html).toContain(">🎨</span>");
+    expect(html).toContain(">📄</span>");
   });
 });
 

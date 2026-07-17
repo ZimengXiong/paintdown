@@ -5,6 +5,7 @@ import { typesetDisplayMath } from "./math.js";
 import type { Block, Color, DrawItem, InlineRun, LayoutResult, RenderOptions, TextItem } from "./types.js";
 
 interface Word extends InlineRun { width: number; size: number; space: boolean; family: string; mono: boolean; tracking: number; assetWidth?: number; assetHeight?: number }
+interface LaidCodeRun extends CodeRun { family: string }
 interface Atom { height: number; items: DrawItem[] }
 interface Compiled { type: Block["type"]; atoms: Atom[]; before: number; after: number; splitMin?: number; keep?: boolean; decoration?: "code" | "quote"; flow?: "float"; startType?: Block["type"]; endType?: Block["type"] }
 
@@ -51,12 +52,22 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
         continue;
       }
       for (const part of (config.upper ? run.text.toUpperCase() : run.text).split(/(\s+)/)) {
-      if (!part) continue;
-      const mono = !!run.code, wordSize = mono ? size * 0.92 : size;
-      const tracking = (mono ? options.codeLetterSpacing : config.letterSpacing ?? options.bodyLetterSpacing) * wordSize + (config.tracking ?? 0);
-      const wordFamily = mono ? options.monoFont : family;
-      words.push({ ...run, text: part, space: /^\s+$/.test(part), mono, family: wordFamily, size: wordSize, tracking,
-        width: fonts.measure(part, wordSize, { family: wordFamily, bold: run.bold, italic: run.italic, mono, tracking }) });
+        if (!part) continue;
+        const mono = !!run.code, wordSize = mono ? size * 0.92 : size;
+        const tracking = (mono ? options.codeLetterSpacing : config.letterSpacing ?? options.bodyLetterSpacing) * wordSize + (config.tracking ?? 0);
+        const preferredFamily = mono ? options.monoFont : family;
+        const segments: { text: string; family: string }[] = [];
+        for (const char of part) {
+          const codePoint = char.codePointAt(0)!;
+          if (codePoint === 0xfe0e || codePoint === 0xfe0f) continue;
+          const resolvedFamily = fonts.familyForCodePoint(preferredFamily, codePoint, !!run.bold, !!run.italic);
+          const previous = segments.at(-1);
+          if (previous?.family === resolvedFamily) previous.text += char;
+          else segments.push({ text: char, family: resolvedFamily });
+        }
+        for (const segment of segments) words.push({ ...run, text: segment.text, space: /^\s+$/.test(segment.text), mono,
+          family: segment.family, size: wordSize, tracking,
+          width: fonts.measure(segment.text, wordSize, { family: segment.family, bold: run.bold, italic: run.italic, mono, tracking }) });
       }
     }
     const lines: Word[][] = []; let line: Word[] = [], used = 0, max = width - (config.firstIndent ?? 0);
@@ -132,15 +143,18 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     }
   }
 
-  function wrapCodeLine(line: string, language: string, size: number, width: number): CodeRun[][] {
+  function wrapCodeLine(line: string, language: string, size: number, width: number): LaidCodeRun[][] {
     const tracking = options.codeLetterSpacing * size;
-    const glyphs: { text: string; token: CodeToken; width: number }[] = [];
+    const glyphs: { text: string; token: CodeToken; family: string; width: number }[] = [];
     for (const run of highlightCodeLine(line.replace(/\t/g, "    "), language)) for (const text of run.text) {
-      glyphs.push({ text, token: run.token, width: fonts.measure(text, size, { family: options.monoFont, mono: true, tracking }) });
+      const codePoint = text.codePointAt(0)!;
+      if (codePoint === 0xfe0e || codePoint === 0xfe0f) continue;
+      const family = fonts.familyForCodePoint(options.monoFont, codePoint);
+      glyphs.push({ text, token: run.token, family, width: fonts.measure(text, size, { family, mono: true, tracking }) });
     }
-    if (!glyphs.length) return [[{ text: " ", token: "plain" }]];
+    if (!glyphs.length) return [[{ text: " ", token: "plain", family: options.monoFont }]];
 
-    const result: CodeRun[][] = [];
+    const result: LaidCodeRun[][] = [];
     let start = 0;
     while (start < glyphs.length) {
       let used = 0, end = start, preferredBreak = -1;
@@ -153,13 +167,13 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
 
       const slice = glyphs.slice(start, end);
       while (slice.length > 1 && /\s/.test(slice.at(-1)!.text)) slice.pop();
-      const runs: CodeRun[] = [];
+      const runs: LaidCodeRun[] = [];
       for (const glyph of slice) {
         const previous = runs.at(-1);
-        if (previous?.token === glyph.token) previous.text += glyph.text;
-        else runs.push({ text: glyph.text, token: glyph.token });
+        if (previous?.token === glyph.token && previous.family === glyph.family) previous.text += glyph.text;
+        else runs.push({ text: glyph.text, token: glyph.token, family: glyph.family });
       }
-      result.push(runs.length ? runs : [{ text: " ", token: "plain" }]);
+      result.push(runs.length ? runs : [{ text: " ", token: "plain", family: options.monoFont }]);
       start = end;
       while (start < glyphs.length && /\s/.test(glyphs[start]!.text)) start++;
     }
@@ -400,8 +414,8 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
         let x = metrics.codeSidePad;
         const items = runs.map(run => {
           const tracking = options.codeLetterSpacing * size;
-          const item: TextItem = { type: "text", x, y: (rowHeight - size) / 2, size, text: run.text, family: options.monoFont, mono: true, tracking, color: CODE_COLORS[run.token] ?? CODE_COLORS.plain };
-          x += fonts.measure(run.text, size, { family: options.monoFont, mono: true, tracking }); return item;
+          const item: TextItem = { type: "text", x, y: (rowHeight - size) / 2, size, text: run.text, family: run.family, mono: true, tracking, color: CODE_COLORS[run.token] ?? CODE_COLORS.plain };
+          x += fonts.measure(run.text, size, { family: run.family, mono: true, tracking }); return item;
         });
         return { height: rowHeight, items };
       });

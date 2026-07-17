@@ -114,13 +114,23 @@ export class FontRegistry {
   add(family: FontFamily): this { this.families.set(family.id, family); return this; }
   get(id: string): FontFamily | undefined { return this.families.get(id); }
   values(): FontFamily[] { return [...this.families.values()]; }
+  familyForCodePoint(preferredId: string, codePoint: number, bold = false, italic = false): string {
+    const preferred = this.get(preferredId);
+    if (!preferred || pickFont(preferred, bold, italic).cmap.has(codePoint)) return preferredId;
+    for (const family of this.families.values()) {
+      if (family.supplemental && pickFont(family, bold, italic).cmap.has(codePoint)) return family.id;
+    }
+    throw new Error(`No embedded glyph for U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`);
+  }
   measure(text: string, size: number, options: { family?: string; bold?: boolean; italic?: boolean; mono?: boolean; tracking?: number } = {}): number {
     let units = 0;
     const family = options.family ? this.get(options.family) : undefined;
     if (family) {
       const font = pickFont(family, options.bold, options.italic);
       for (const char of text) {
-        const glyph = font.cmap.get(char.codePointAt(0)!) ?? font.cmap.get(0xfffd) ?? font.cmap.get(0x3f) ?? 0;
+        const codePoint = char.codePointAt(0)!;
+        const glyph = font.cmap.get(codePoint);
+        if (glyph == null) throw new Error(`Font ${family.id} has no glyph for U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`);
         units += font.advances[glyph] ?? font.upem * 0.5;
       }
       units = units * size / font.upem;

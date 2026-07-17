@@ -93,6 +93,8 @@ export interface FontFamily {
   label: string;
   cssFamily: string;
   styles: Partial<Record<FontSlot, ParsedFont>>;
+  /** Deterministic supplemental coverage used by the glyph router. */
+  supplemental?: boolean;
 }
 
 export type Color = readonly [number, number, number];

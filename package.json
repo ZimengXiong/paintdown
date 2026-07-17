@@ -49,6 +49,7 @@
     "dist/inter.js",
     "dist/cli.js",
     "fonts/INTER-LICENSE.txt",
+    "fonts/noto-emoji/OFL.txt",
     "README.md",
     "LICENSE"
   ],
