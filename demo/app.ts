@@ -1,8 +1,7 @@
 import { createFetchImageResolver, createRenderer, decodeImage, DEFAULT_OPTIONS } from "../src/index.js";
-import { createFontFamily, fontSlot, parseTrueType } from "../src/fonts.js";
 import { downloadBytes, registerBrowserFonts, renderPreview } from "../src/browser.js";
 import { loadStandardFonts } from "../src/standard-fonts.js";
-import type { FontSlot, RenderOptions } from "../src/types.js";
+import type { RenderOptions } from "../src/types.js";
 import sample from "../sample.md";
 
 const proceduralArt = new URLSearchParams(location.search).get("art") === "procedural";
@@ -129,61 +128,6 @@ const settingsButton = document.querySelector<HTMLButtonElement>("#settingsBtn")
 const configControls = [...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-config]")];
 const marginControl = document.querySelector<HTMLInputElement>("[data-margin]")!;
 const mutableConfig = demoConfig as unknown as Record<string, unknown>;
-const fontLoaders: Record<string, () => Promise<import("../src/types.js").FontFamily>> = {
-  "source-sans-3": async () => (await import("../src/font-families/source-sans-3.js")).loadSourceSans3(),
-  "source-serif-4": async () => (await import("../src/font-families/source-serif-4.js")).loadSourceSerif4(),
-  "fira-sans": async () => (await import("../src/font-families/fira-sans.js")).loadFiraSans(),
-  "atkinson-hyperlegible": async () => (await import("../src/font-families/atkinson-hyperlegible.js")).loadAtkinsonHyperlegible(),
-  "alegreya-sans": async () => (await import("../src/font-families/alegreya-sans.js")).loadAlegreyaSans(),
-  "ibm-plex-serif": async () => (await import("../src/font-families/ibm-plex-serif.js")).loadIbmPlexSerif(),
-  "spectral": async () => (await import("../src/font-families/spectral.js")).loadSpectral(),
-  "crimson-text": async () => (await import("../src/font-families/crimson-text.js")).loadCrimsonText(),
-  "gentium-book-plus": async () => (await import("../src/font-families/gentium-book-plus.js")).loadGentiumBookPlus(),
-  "source-code-pro": async () => (await import("../src/font-families/source-code-pro.js")).loadSourceCodePro(),
-  "ibm-plex-mono": async () => (await import("../src/font-families/ibm-plex-mono.js")).loadIbmPlexMono(),
-  "space-mono": async () => (await import("../src/font-families/space-mono.js")).loadSpaceMono(),
-  "doto": async () => (await import("../src/font-families/doto.js")).loadDoto(),
-  "jetbrains-mono": async () => (await import("../src/font-families/jetbrains-mono.js")).loadJetBrainsMono(),
-  "fira-code": async () => (await import("../src/font-families/fira-code.js")).loadFiraCode(),
-  "roboto-mono": async () => (await import("../src/font-families/roboto-mono.js")).loadRobotoMono(),
-  "geist-mono": async () => (await import("../src/font-families/geist-mono.js")).loadGeistMono(),
-  "cascadia-mono": async () => (await import("../src/font-families/cascadia-mono.js")).loadCascadiaMono(),
-};
-const pendingFonts = new Map<string, Promise<void>>();
-async function ensureFont(id: string) {
-  if (renderer.fonts.get(id) || !fontLoaders[id]) return;
-  let pending = pendingFonts.get(id);
-  if (!pending) {
-    pending = fontLoaders[id]!().then(async family => { renderer.fonts.add(family); await registerBrowserFonts([family]); });
-    pendingFonts.set(id, pending);
-  }
-  await pending;
-}
-
-function addFontOption(id: string, label: string) {
-  for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-config='bodyFont'],select[data-config='headingFont'],select[data-config='monoFont']")) {
-    let group = [...select.children].find(child => child instanceof HTMLOptGroupElement && child.label === "Custom / licensed") as HTMLOptGroupElement | undefined;
-    if (!group) { group = document.createElement("optgroup"); group.label = "Custom / licensed"; select.append(group); }
-    if (![...group.options].some(option => option.value === id)) group.append(new Option(label, id));
-  }
-}
-
-document.querySelector<HTMLInputElement>("#fontUpload")!.addEventListener("change", event => { void (async () => {
-  const files = [...(event.currentTarget as HTMLInputElement).files ?? []];
-  const grouped = new Map<string, { label: string; styles: Partial<Record<FontSlot, Uint8Array>> }>();
-  for (const file of files) {
-    const bytes = new Uint8Array(await file.arrayBuffer()), parsed = parseTrueType(bytes);
-    const key = parsed.family.toLowerCase();
-    const group = grouped.get(key) ?? { label: parsed.family, styles: {} };
-    group.styles[fontSlot(parsed.subfamily)] = bytes; grouped.set(key, group);
-  }
-  for (const [key, group] of grouped) {
-    const id = `custom-${key.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
-    const family = createFontFamily(group.styles, id);
-    renderer.fonts.add(family); await registerBrowserFonts([family]); addFontOption(id, group.label);
-  }
-  status.textContent = grouped.size ? `${grouped.size} custom font${grouped.size === 1 ? "" : "s"} added` : "No TTF fonts selected";
-})(); });
 
 function formatSetting(value: unknown): string {
   return typeof value === "number" ? (Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")) : String(value ?? "");
@@ -206,7 +150,6 @@ for (const control of configControls) control.addEventListener("input", () => { 
   mutableConfig[key] = control instanceof HTMLInputElement && control.type === "checkbox" ? control.checked
     : control instanceof HTMLInputElement && control.type === "range" ? Number(control.value)
     : control.value;
-  if (key === "bodyFont" || key === "headingFont" || key === "monoFont") await ensureFont(String(mutableConfig[key]));
   syncSettings(); scheduleUpdate();
 })(); });
 marginControl.addEventListener("input", () => {

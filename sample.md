@@ -15,7 +15,7 @@ paintmark has two modes: `smart-wrap` and `blocked`. the former auto wraps words
 
 - blank space is filled by random dots to make it feel less empty
 - image alt text is auto presented as captions
-- text is spaced accordingly to how related sections are. this makes lists, paragraphs, and headers look nice and are easy to ready
+- text is spaced accordingly to how related sections are. this makes lists, paragraphs, and headers look nice and easy to read
 - sizing is done proportionally to the default font size
 
 ### math
@@ -51,7 +51,7 @@ Wide images use the content column instead of squeezing prose into a sad little 
 
 the usual trip is Markdown → HTML → CSS → browser → print → PDF. It can work, but the result may depend on browser versions, font loading, print styles, and page-break rules, they also look nothing like the preview.
 
-paintdown takes a shorter route: Markdown → measured layout → PDF. The preview draws the same page boxes used by the writer.
+paintmark takes a shorter route: Markdown → measured layout → PDF. The preview draws the same page boxes used by the writer.
 
 1. parse the document
 2. measure the text

@@ -85,7 +85,7 @@ describe("HTML output", () => {
     const html = exactHtml(document);
     expect(html).toContain('class="paintmark-image paintmark-vector"');
     expect(html).toContain('<svg aria-hidden="true"');
-    expect(html).toContain(`left:${math.x}px;top:${math.y}px;width:${math.width}px;height:${math.height}px`);
+    expect(html).toContain(`left:${math.x}px;top:0px;width:${math.width}px;height:${math.height}px`);
     expect(html).not.toContain("data:image/png;base64");
   });
 
@@ -94,7 +94,10 @@ describe("HTML output", () => {
     const layout = layoutDocument(document.blocks, htmlRegistry, htmlConfig), code = layout.pages.flat().filter(item => item.type === "text" && item.mono);
     const html = exactHtml(document);
     expect(new Set(code.map(item => item.y)).size).toBeGreaterThan(1);
-    for (const item of code) expect(html).toContain(`left:${item.x}px;top:${item.y}px`);
+    for (const item of code) {
+      expect(html).toContain(`left:${item.x}px;`);
+      expect(html).toContain(`>${item.text}</span>`);
+    }
     expect(html).not.toContain("<pre");
   });
 
@@ -112,14 +115,16 @@ describe("HTML output", () => {
     const image = layout.pages[0]!.find(item => item.type === "image")!;
     const notes = layout.pages[0]!.find(item => item.type === "text" && item.text === "Notes")!;
     expect(notes.x).toBeLessThan(image.x);
-    expect(html).toContain(`left:${image.x}px;top:${image.y}px;width:${image.width}px;height:${image.height}px`);
-    expect(html).toContain(`left:${notes.x}px;top:${notes.y}px`);
+    expect(html).toContain(`left:${image.x}px;top:0px;width:${image.width}px;height:${image.height}px`);
+    expect(html).toContain(`left:${notes.x}px;`);
   });
 
-  it("uses fixed pages rather than a second browser layout engine", () => {
+  it("uses cropped display-list segments without visible page chrome", () => {
     const html = exactHtml(parseMarkdown("# One\n\nTwo"));
     expect(html).toContain('class="paintmark-page"');
     expect(html).toContain("position:absolute");
+    expect(html).toContain("html,body{background:#fff}");
+    expect(html).not.toContain("box-shadow");
     expect(html).not.toContain("<h1");
     expect(html).not.toContain("<p>");
   });

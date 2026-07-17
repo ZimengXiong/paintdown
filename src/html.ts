@@ -31,21 +31,21 @@ function paintedFont(item: TextItem, families: Map<string, FontFamily>): string 
   return custom.cssFamily;
 }
 
-function paintedItem(item: DrawItem, families: Map<string, FontFamily>): string {
+function paintedItem(item: DrawItem, families: Map<string, FontFamily>, offsetY = 0): string {
   if (item.type === "text") {
     const supplemental = families.get(item.family)?.supplemental;
-    const style = `left:${item.x}px;top:${item.y}px;font-family:${paintedFont(item, families)};font-size:${item.size}px;font-weight:${!supplemental && item.bold ? 600 : 400};font-style:${!supplemental && item.italic ? "italic" : "normal"};letter-spacing:${item.tracking ?? 0}px;color:${rgb(item.color)};text-decoration:${[item.link && "underline", item.strike && "line-through"].filter(Boolean).join(" ") || "none"}`;
+    const style = `left:${item.x}px;top:${item.y - offsetY}px;font-family:${paintedFont(item, families)};font-size:${item.size}px;font-weight:${!supplemental && item.bold ? 600 : 400};font-style:${!supplemental && item.italic ? "italic" : "normal"};letter-spacing:${item.tracking ?? 0}px;color:${rgb(item.color)};text-decoration:${[item.link && "underline", item.strike && "line-through"].filter(Boolean).join(" ") || "none"}`;
     const content = escape(item.text);
     return item.link ? `<a class="paintmark-text" href="${escape(item.link)}" style="${style}">${content}</a>`
       : `<span class="paintmark-text" style="${style}">${content}</span>`;
   }
-  if (item.type === "rect") return `<span class="paintmark-rect" style="left:${item.x}px;top:${item.y}px;width:${item.width}px;height:${item.height}px;background:${rgb(item.color)}"></span>`;
+  if (item.type === "rect") return `<span class="paintmark-rect" style="left:${item.x}px;top:${item.y - offsetY}px;width:${item.width}px;height:${item.height}px;background:${rgb(item.color)}"></span>`;
   if (item.type === "line") {
-    const left = Math.min(item.x1, item.x2), top = Math.min(item.y1, item.y2);
+    const left = Math.min(item.x1, item.x2), top = Math.min(item.y1, item.y2) - offsetY;
     const width = Math.max(Math.abs(item.x2 - item.x1), item.width), height = Math.max(Math.abs(item.y2 - item.y1), item.width);
-    return `<svg class="paintmark-line" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;overflow:visible" viewBox="0 0 ${width} ${height}" aria-hidden="true"><line x1="${item.x1 - left}" y1="${item.y1 - top}" x2="${item.x2 - left}" y2="${item.y2 - top}" stroke="${rgb(item.color)}" stroke-width="${item.width}"/></svg>`;
+    return `<svg class="paintmark-line" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px;overflow:visible" viewBox="0 0 ${width} ${height}" aria-hidden="true"><line x1="${item.x1 - left}" y1="${item.y1 - offsetY - top}" x2="${item.x2 - left}" y2="${item.y2 - offsetY - top}" stroke="${rgb(item.color)}" stroke-width="${item.width}"/></svg>`;
   }
-  const style = `left:${item.x}px;top:${item.y}px;width:${item.width}px;height:${item.height}px`;
+  const style = `left:${item.x}px;top:${item.y - offsetY}px;width:${item.width}px;height:${item.height}px`;
   if (item.asset.vectorSvg) {
     const svg = item.asset.vectorSvg.replace("<svg ", '<svg aria-hidden="true" focusable="false" ');
     return `<span class="paintmark-image paintmark-vector" style="${style}">${svg}</span>`;
@@ -64,10 +64,24 @@ export function renderHtml(document: MarkdownDocument, partial: Partial<RenderOp
   const options = resolveOptions(configured), registry = new FontRegistry(embedded);
   const layout = layoutDocument(document.blocks, registry, options);
   const families = new Map(embedded.map(family => [family.id, family]));
-  const pages = layout.pages.map((items, index) =>
-    `<main class="paintmark-page" aria-label="Page ${index + 1}">${items.map(item => paintedItem(item, families)).join("")}</main>`).join("");
+  const itemTop = (item: DrawItem) => item.type === "text" || item.type === "rect" || item.type === "image"
+    ? item.y : Math.min(item.y1, item.y2) - item.width / 2;
+  const itemBottom = (item: DrawItem) => item.type === "text" ? item.y + item.size
+    : item.type === "rect" || item.type === "image" ? item.y + item.height
+    : Math.max(item.y1, item.y2) + item.width / 2;
+  const isDot = (item: DrawItem) => item.type === "rect"
+    && item.width <= options.fontSize * 0.2 && item.height <= options.fontSize * 0.2;
+  const segments = layout.pages.map(items => {
+    const content = items.filter(item => !isDot(item));
+    const top = content.length ? Math.min(...content.map(itemTop)) : options.marginTop;
+    const bottom = content.length ? Math.max(...content.map(itemBottom)) : top;
+    const visible = items.filter(item => !isDot(item) || (itemBottom(item) >= top && itemTop(item) <= bottom));
+    return { top, height: Math.max(options.fontSize, bottom - top), items: visible };
+  });
+  const pages = segments.map((segment, index) =>
+    `<section class="paintmark-page" aria-label="Document segment ${index + 1}" style="height:${segment.height}px">${segment.items.map(item => paintedItem(item, families, segment.top)).join("")}</section>`).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>
 ${fontFaces(embedded)}
-*{box-sizing:border-box}html{background:#b7bbbd}body{margin:0;padding:24px;display:flex;flex-direction:column;align-items:center;gap:24px}.paintmark-page{position:relative;flex:none;width:${layout.pageWidth}px;height:${layout.pageHeight}px;background:#fff;overflow:hidden;box-shadow:0 1px 7px #0002}.paintmark-text,.paintmark-rect,.paintmark-line,.paintmark-image{position:absolute}.paintmark-text{display:block;line-height:1;white-space:pre}.paintmark-vector{display:block}.paintmark-vector svg{display:block;width:100%;height:100%;max-width:none;max-height:none}@media(max-width:${layout.pageWidth + 48}px){body{align-items:flex-start}.paintmark-page{transform-origin:top left}}
+*{box-sizing:border-box}html,body{background:#fff}body{margin:0;padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:${Math.max(4, options.fontSize * (options.lineHeight - 1))}px}.paintmark-page{position:relative;flex:none;width:${layout.pageWidth}px;background:#fff;overflow:hidden}.paintmark-text,.paintmark-rect,.paintmark-line,.paintmark-image{position:absolute}.paintmark-text{display:block;line-height:1;white-space:pre}.paintmark-vector{display:block}.paintmark-vector svg{display:block;width:100%;height:100%;max-width:none;max-height:none}@media(max-width:${layout.pageWidth + 48}px){body{align-items:flex-start}.paintmark-page{transform-origin:top left}}
 </style></head><body>${pages}</body></html>`;
 }
