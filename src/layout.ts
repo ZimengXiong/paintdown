@@ -333,8 +333,8 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       }
       previous = part;
     }
-    if (options.blankSpaceDecoration === "dot-grid" && figureHeight - y >= 3 * em) {
-      const top = y + 1.25 * em, bottom = figureHeight;
+    if (options.blankSpaceDecoration === "dot-grid" && height - y >= 3 * em) {
+      const top = y + 1.25 * em, bottom = height;
       figureItems.unshift(...grayDotGrid(textX, top, textWidth, bottom - top, options.blankSpaceDecorationSeed ^ 0x51f15e ^ start));
     }
     return { block: { type: "image", atoms: [{ height: Math.max(figureHeight, y), items: figureItems }],
@@ -471,9 +471,9 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
             }
             textOffset += atom.height;
           }
-          const internalBlank = offset - textOffset;
+          const internalBlank = height - textOffset;
           if (options.blankSpaceDecoration === "dot-grid" && internalBlank >= 3 * em) {
-            const fieldTop = textOffset + 1.25 * em, fieldBottom = offset;
+            const fieldTop = textOffset + 1.25 * em, fieldBottom = height;
             figureItems.unshift(...grayDotGrid(textX, fieldTop, textWidth, fieldBottom - fieldTop, options.blankSpaceDecorationSeed ^ 0x51f15e ^ sourceIndex));
           }
           compiled.push({ type: block.type, atoms: [{ height: Math.max(offset, textOffset), items: figureItems }], before: spacing.image[0], after: spacing.paragraph[1], flow: "float" });
@@ -577,7 +577,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       const isDot = (item: DrawItem) => item.type === "rect" && item.width <= em * 0.2 && item.height <= em * 0.2;
       const contentBottom = pageItems.reduce((maximum, item) => isDot(item) ? maximum : Math.max(maximum, itemBottom(item)), options.marginTop);
       const dotBottom = pageItems.reduce((maximum, item) => isDot(item) ? Math.max(maximum, itemBottom(item)) : maximum, 0);
-      const joinsExistingField = dotBottom >= contentBottom - 1.5 * em;
+      const joinsExistingField = dotBottom >= contentBottom - 0.25 * em;
       const blankTop = joinsExistingField ? Math.max(contentBottom, dotBottom) : contentBottom + 1.5 * em;
       const available = bottom - blankTop;
       if (available < 2.75 * em) return;

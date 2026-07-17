@@ -228,6 +228,20 @@ describe("image layout", () => {
     const belowTop = Math.min(...below.map(dot => dot.y));
     expect(belowTop - internalBottom).toBeLessThan(DEFAULT_OPTIONS.fontSize);
   });
+
+  it("leaves the normal content gap after a floated image caption", () => {
+    const layout = layoutDocument([
+      { type: "heading", level: 2, runs: [{ text: "Portrait" }] },
+      { type: "image", source: "portrait.png", alt: "A wrapped portrait caption", asset: asset(800, 1200) },
+      { type: "paragraph", runs: [{ text: "Short copy beside the image." }] },
+    ], undefined, { blankSpaceDecoration: "dot-grid" });
+    const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
+    const caption = page.find(item => item.type === "text" && item.text.includes("caption"))!;
+    const dotsBelowCaption = page.filter(item => item.type === "rect" && item.width < DEFAULT_OPTIONS.fontSize * 0.2
+      && item.x >= image.x && item.y > image.y + image.height);
+    expect(dotsBelowCaption.length).toBeGreaterThan(0);
+    expect(Math.min(...dotsBelowCaption.map(dot => dot.y)) - (caption.y + caption.size)).toBeGreaterThan(DEFAULT_OPTIONS.fontSize);
+  });
 });
 
 describe("table rendering", () => {
