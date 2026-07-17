@@ -6,6 +6,12 @@ type ObjectBody = string | (string | Uint8Array)[];
 const encoder = new TextEncoder();
 const winAnsi: Record<number, number> = { 8216: 0x91, 8217: 0x92, 8220: 0x93, 8221: 0x94, 8211: 0x96, 8212: 0x97, 8230: 0x85, 8226: 0x95, 9702: 0xb0 };
 const number = (value: number) => `${Math.round(value * 100) / 100}`;
+const unicodeHex = (codePoint: number) => {
+  if (codePoint <= 0xffff) return codePoint.toString(16).padStart(4, "0");
+  const value = codePoint - 0x10000;
+  const high = 0xd800 + (value >> 10), low = 0xdc00 + (value & 0x3ff);
+  return `${high.toString(16).padStart(4, "0")}${low.toString(16).padStart(4, "0")}`;
+};
 
 function escapePdf(value: string): string {
   let result = "";
@@ -72,8 +78,11 @@ export function renderPdf(layout: LayoutResult, fonts = new FontRegistry()): Uin
         if (family) {
           const cid = cidFor(item); let hex = "";
           for (const char of item.text) {
-            const unicode = char.codePointAt(0)!, glyph = cid.font.cmap.get(unicode) ?? 0;
-            cid.used.set(glyph, unicode); hex += glyph.toString(16).padStart(4, "0");
+            const unicode = char.codePointAt(0)!, mapped = cid.font.cmap.get(unicode);
+            const replacementUnicode = cid.font.cmap.has(0xfffd) ? 0xfffd : 0x3f;
+            const glyph = mapped ?? cid.font.cmap.get(replacementUnicode) ?? 0;
+            cid.used.set(glyph, mapped == null ? replacementUnicode : unicode);
+            hex += glyph.toString(16).padStart(4, "0");
           }
           operation = `/${cid.resource} ${number(item.size)} Tf ${number(item.tracking ?? 0)} Tc ${item.color.join(" ")} rg ${number(item.x)} ${number(baseline)} Td <${hex}> Tj`;
         } else operation = `/${baseFont(item)} ${number(item.size)} Tf ${number(item.tracking ?? 0)} Tc ${item.color.join(" ")} rg ${number(item.x)} ${number(baseline)} Td (${escapePdf(item.text)}) Tj`;
@@ -100,7 +109,7 @@ export function renderPdf(layout: LayoutResult, fonts = new FontRegistry()): Uin
     const glyphs = [...cid.used.keys()].sort((a, b) => a - b);
     const widths = glyphs.map(glyph => `${glyph} [${Math.round((font.advances[glyph] ?? font.upem * 0.5) * scale)}]`).join(" ");
     const descendant = add(`<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptor} 0 R /CIDToGIDMap /Identity /DW 500 /W [${widths}] >>`);
-    const mappings = glyphs.map(glyph => `<${glyph.toString(16).padStart(4, "0")}> <${(cid.used.get(glyph) ?? 0xfffd).toString(16).padStart(4, "0")}>`).join("\n");
+    const mappings = glyphs.map(glyph => `<${glyph.toString(16).padStart(4, "0")}> <${unicodeHex(cid.used.get(glyph) ?? 0xfffd)}>`).join("\n");
     const cmap = `/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n${glyphs.length} beginbfchar\n${mappings}\nendbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend`;
     const unicodeMap = add(`<< /Length ${encoder.encode(cmap).length} >>\nstream\n${cmap}\nendstream`);
     const type0 = add(`<< /Type /Font /Subtype /Type0 /BaseFont /${name} /Encoding /Identity-H /DescendantFonts [${descendant} 0 R] /ToUnicode ${unicodeMap} 0 R >>`);

@@ -82,6 +82,20 @@ describe("HTML output", () => {
     const html = renderHtml(parseMarkdown("Keep ~~old words~~ here."));
     expect(html).toContain("<del>old words</del>");
   });
+
+  it("smart-wraps portrait images around following structural content", () => {
+    const document = parseMarkdown("![Portrait](portrait.png)\n\n## Notes\n\n- one\n- two");
+    document.blocks[0] = { ...document.blocks[0]!, asset: asset(800, 1200) } as typeof document.blocks[number];
+    const html = renderHtml(document);
+    expect(html).toContain('figure class="smart-float right"');
+    expect(html).not.toContain("h1,h2,h3,.thematic-break");
+  });
+
+  it("centers HTML captions against the shrink-wrapped image box", () => {
+    const html = renderHtml(parseMarkdown("![A caption](small.png)"));
+    expect(html).toContain("figure{display:table;width:max-content;max-width:100%");
+    expect(html).toContain("figcaption{display:table-caption;caption-side:bottom");
+  });
 });
 
 describe("code blocks", () => {
@@ -253,6 +267,23 @@ describe("image layout", () => {
       && item.x >= image.x && item.y > image.y + image.height);
     expect(dotsBelowCaption.length).toBeGreaterThan(0);
     expect(Math.min(...dotsBelowCaption.map(dot => dot.y)) - (caption.y + caption.size)).toBeGreaterThan(DEFAULT_OPTIONS.fontSize);
+  });
+
+  it("centers every caption line against its image width", () => {
+    const layout = layoutDocument([
+      { type: "image", source: "portrait.png", alt: "A deliberately wrapping portrait caption", asset: asset(300, 900) },
+    ]);
+    const page = layout.pages[0]!, image = page.find(item => item.type === "image")!;
+    const captions = page.filter(item => item.type === "text" && item.italic);
+    const fonts = new FontRegistry();
+    for (const y of new Set(captions.map(caption => caption.y))) {
+      const line = captions.filter(caption => caption.y === y);
+      const left = Math.min(...line.map(caption => caption.x));
+      const right = Math.max(...line.map(caption => caption.x + fonts.measure(caption.text, caption.size, {
+        family: caption.family, italic: true, tracking: caption.tracking,
+      })));
+      expect((left + right) / 2).toBeCloseTo(image.x + image.width / 2);
+    }
   });
 });
 

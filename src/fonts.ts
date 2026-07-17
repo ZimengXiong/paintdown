@@ -119,7 +119,10 @@ export class FontRegistry {
     const family = options.family ? this.get(options.family) : undefined;
     if (family) {
       const font = pickFont(family, options.bold, options.italic);
-      for (const char of text) units += font.advances[font.cmap.get(char.codePointAt(0)!) ?? 0] ?? font.upem * 0.5;
+      for (const char of text) {
+        const glyph = font.cmap.get(char.codePointAt(0)!) ?? font.cmap.get(0xfffd) ?? font.cmap.get(0x3f) ?? 0;
+        units += font.advances[glyph] ?? font.upem * 0.5;
+      }
       units = units * size / font.upem;
     } else {
       const name = afmName(options.bold, options.italic, options.mono, options.family);

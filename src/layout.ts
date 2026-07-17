@@ -114,6 +114,24 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     });
   }
 
+  function centerAtoms(atoms: Atom[], left: number, width: number): void {
+    for (const atom of atoms) {
+      const horizontal = atom.items.flatMap(item => {
+        if (item.type === "text") return [[item.x, item.x + measure(item.text, item.size, item, item.family, item.tracking)] as const];
+        if (item.type === "image" || item.type === "rect") return [[item.x, item.x + item.width] as const];
+        return [[Math.min(item.x1, item.x2), Math.max(item.x1, item.x2)] as const];
+      });
+      if (!horizontal.length) continue;
+      const currentLeft = Math.min(...horizontal.map(edge => edge[0]));
+      const currentRight = Math.max(...horizontal.map(edge => edge[1]));
+      const shift = left + (width - (currentRight - currentLeft)) / 2 - currentLeft;
+      for (const item of atom.items) {
+        if (item.type === "text" || item.type === "image" || item.type === "rect") item.x += shift;
+        else { item.x1 += shift; item.x2 += shift; }
+      }
+    }
+  }
+
   function wrapCodeLine(line: string, language: string, size: number, width: number): CodeRun[][] {
     const tracking = options.codeLetterSpacing * size;
     const glyphs: { text: string; token: CodeToken; width: number }[] = [];
@@ -265,6 +283,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
     if (options.showImageAltAsCaption && imageBlock.alt) {
       const captionSize = em * 0.88, captionLine = captionSize * 1.12;
       const captions = textAtoms([{ text: imageBlock.alt, italic: true }], captionSize, width, captionLine, { x: imageX, family: options.bodyFont });
+      centerAtoms(captions, imageX, width);
       if (captions.length) captions[0]!.height += options.imageCaptionGap * em;
       let captionY = height;
       for (const atom of captions) {
@@ -442,6 +461,7 @@ export function layoutDocument(blocks: Block[], fonts = new FontRegistry(), part
       if (options.showImageAltAsCaption && block.alt) {
         const captionSize = em * 0.88, captionLine = captionSize * 1.12;
         const captionAtoms = textAtoms([{ text: block.alt, italic: true }], captionSize, width, captionLine, { x, family: options.bodyFont });
+        centerAtoms(captionAtoms, x, width);
         if (captionAtoms.length) captionAtoms[0]!.height += options.imageCaptionGap * em;
         for (const atom of captionAtoms) for (const item of atom.items) if (item.type === "text") { item.y += options.imageCaptionGap * em; item.color = MUTED; }
         atoms.push(...captionAtoms);
